@@ -267,10 +267,10 @@ test('PWA assets and offline fallback stay under the GitHub project path without
   assert.equal(manifest.scope, './'); assert.equal(manifest.start_url, './');
   assert.ok(manifest.icons.every(icon => !icon.src.startsWith('/')));
   const events = {}, reads = [];
-  const context = { URL, location: { origin: 'https://0pcn.github.io' }, self: { registration: { scope: 'https://0pcn.github.io/Stock/' }, addEventListener(name, callback) { events[name] = callback; } }, fetch: async () => { throw new Error('offline'); }, caches: { match(path) { reads.push(path); return Promise.resolve('offline'); } } };
+  const context = { URL, location: { origin: 'https://0pcn.github.io' }, self: { registration: { scope: 'https://0pcn.github.io/Stock/' }, addEventListener(name, callback) { events[name] = callback; } }, fetch: async () => { throw new Error('offline'); }, caches: { open: async () => ({ match(path) { reads.push(path); return Promise.resolve(path.endsWith('offline.html') ? 'offline' : undefined); } }) } };
   vm.runInNewContext(await readFile(new URL('../public/sw.js', import.meta.url), 'utf8'), context);
   let navigation; events.fetch({ request: { method: 'GET', url: 'https://0pcn.github.io/Stock/', mode: 'navigate' }, respondWith(promise) { navigation = promise; } });
-  assert.equal(await navigation, 'offline'); assert.equal(reads[0], '/Stock/offline.html');
+  assert.equal(await navigation, 'offline'); assert.deepEqual(reads, ['/Stock/', '/Stock/offline.html']);
   let intercepted = false; events.fetch({ request: { method: 'GET', url: 'https://sheets.googleapis.com/v4/spreadsheets/private', mode: 'cors' }, respondWith() { intercepted = true; } });
   assert.equal(intercepted, false);
 });

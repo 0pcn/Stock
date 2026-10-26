@@ -17,7 +17,7 @@
     "dev:server": "node scripts/run-framework.mjs dev",
     "build:server": "node scripts/run-framework.mjs build",
     "typecheck": "tsc --noEmit",
-    "test:portfolio": "node --test tests/holding-metrics.test.mjs"
+    "test:portfolio": "node --test tests/holding-metrics.test.mjs tests/portfolio-snapshot.test.mjs tests/portfolio-ui.test.mjs tests/service-worker.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -56,9 +56,11 @@
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "drizzle-kit": "0.31.10",
+    "esbuild": "^0.28.2",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.4",
     "fake-indexeddb": "^6.2.6",
+    "jsdom": "^30.1.3",
     "json-rpc-2.0": "1.7.1",
     "raw-body": "3.0.2",
     "react-server-dom-webpack": "19.2.6",

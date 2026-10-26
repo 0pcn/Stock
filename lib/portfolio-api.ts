@@ -6,8 +6,12 @@ export type PortfolioApi = {
   logout(): Promise<any>;
   login?(): Promise<any>;
   initialize?(): Promise<void>;
-  subscribe?(listener: () => void): () => void;
+  subscribe?(listener: (reason?: 'cleared') => void): () => void;
+  canRefresh?(): boolean;
+  saved?(): Promise<SavedPortfolio>;
+  clearSaved?(): Promise<void>;
 };
+export type SavedPortfolio = { persisted: boolean; sources: Record<string, { rows: (string | number | null)[][]; savedAt: number }> };
 async function post(path: string, body?: unknown) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}), cache: 'no-store' });
   return response.json();
