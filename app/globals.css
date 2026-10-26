@@ -4,3 +4,5 @@
 .sort-control select{max-width:100px}.list-heading .holdings-metric-label{font-size:10px;color:#879976;white-space:nowrap}.detail-value>.detail-pnl-label{display:block;margin-top:19px}
 
 .hero-amount.hero-unrealized{flex-wrap:wrap}.hero-amount .hero-return{font-size:11px;line-height:1.4;letter-spacing:0;padding:4px 6px;border-radius:5px;background:#f5f7e960;white-space:nowrap}
+
+.detail-unrealized{margin-top:14px;padding:19px 20px;border:1px solid #bdcfae;border-radius:15px;background:#f2f7eb}.detail-unrealized-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.detail-unrealized-heading h3{font-size:16px;color:#3d5d32}.detail-unrealized-heading>span{font-size:10px;color:#5c774d;background:#e2ecd7;padding:4px 7px;border-radius:5px}.detail-unrealized>strong{display:block;margin-top:13px;font-size:28px;line-height:1.3;letter-spacing:-.5px;overflow-wrap:anywhere}.detail-unrealized-rate{display:flex;align-items:center;gap:9px;margin-top:10px;font-size:11px;color:#667b58}.detail-unrealized-rate b{font-size:13px}.detail-unrealized>p{margin-top:12px;color:#667b58;font-size:11px;line-height:1.8}.detail-grid>div:last-child{grid-column:1/-1}
