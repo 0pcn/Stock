@@ -2,7 +2,7 @@
 
 手機優先的股票庫存 PWA，正式網址：**https://0pcn.github.io/Stock/**。
 
-網站以 React + Vite 建置成靜態 HTML、CSS 和 JavaScript，由 GitHub Pages 提供。登入後直接顯示庫存，底部有庫存、分析、交易、股利及帳戶五個分頁，支援加入手機主畫面。
+網站以 React + Vite 建置成靜態 HTML、CSS 和 JavaScript，由 GitHub Pages 提供。登入後直接顯示庫存；首頁摘要、持股列表及排序採未實現損益／報酬率，持股明細顯示已實現＋未實現的累計價差損益。底部有庫存、分析、交易、股利及帳戶五個分頁，支援加入手機主畫面。
 
 ## 執行與建置
 

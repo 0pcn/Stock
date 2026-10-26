@@ -16,7 +16,8 @@
     "preview": "vite preview --config vite.pages.config.ts --host 127.0.0.1",
     "dev:server": "node scripts/run-framework.mjs dev",
     "build:server": "node scripts/run-framework.mjs build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:portfolio": "node --test tests/holding-metrics.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
