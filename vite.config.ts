@@ -4,6 +4,7 @@ import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { configureToolEnvironment } from "./scripts/tool-environment.mjs";
 import { sites } from "./scripts/vite/sites-vite-plugin";
+import { localGoogleSheets } from "./scripts/vite/local-google-plugin.mjs";
 import { connectorPreview } from "./scripts/vite/connector-preview-plugin.mjs";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -45,6 +46,8 @@ export default defineConfig(async ({ command }) => {
 
   return {
     server: {
+      // Keep localhost OAuth credentials tied to the configured development port.
+      ...(!managedLinux ? { host: "127.0.0.1", strictPort: true } : {}),
       ...(managedLinux
         ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }
         : {}),
@@ -53,6 +56,7 @@ export default defineConfig(async ({ command }) => {
         : {}),
     },
     plugins: [
+      localGoogleSheets({ enabled: !managedLinux }),
       vinext(),
       sites({ mockAuth: !managedLinux }),
       connectorPreview(),
