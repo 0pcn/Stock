@@ -6,6 +6,8 @@ import vm from 'node:vm';
 import { createBrowserGoogle } from '../lib/browser-google.mjs';
 import { SCRIPT_SCOPES } from '../scripts/local-google/price-refresh.mjs';
 import { SPREADSHEET_ID } from '../lib/portfolio-sources.mjs';
+import { IDBFactory } from 'fake-indexeddb';
+import { createIndexedAuthStorage } from '../lib/browser-auth-storage.mjs';
 
 function memoryStorage() {
   const values = new Map();
@@ -56,6 +58,7 @@ test('manual sync calls only the fixed script, deduplicates one click and report
 test('logout and expiration clear the token and late reads cannot restore portfolio data', async () => {
   const f = fixture(); await f.api.login(); let release;
   f.calls.wait = new Promise(resolve => { release = resolve; }); const reading = f.api.read('holdings');
+  await Promise.resolve(); assert.equal(f.calls.requests.length, 1);
   await f.api.logout(); release(); assert.equal((await reading).status, 'reauthentication_required'); assert.equal((await f.api.status()).connected, false);
   await f.api.login(); let notifications = 0; f.api.subscribe(() => notifications++); f.expire();
   assert.equal(notifications, 1); assert.equal((await f.api.status()).connected, false);
@@ -64,6 +67,7 @@ test('logout and expiration clear the token and late reads cannot restore portfo
 test('switching accounts discards old responses and a new device starts with no saved token', async () => {
   const f = fixture(); await f.api.login(); let release;
   f.calls.wait = new Promise(resolve => { release = resolve; }); const alice = f.api.read('holdings');
+  await Promise.resolve(); assert.equal(f.calls.requests.length, 1);
   f.calls.token = 'bob-access'; await f.api.login(); release(); assert.equal((await alice).status, 'reauthentication_required');
   await f.api.read('holdings'); assert.equal(f.calls.requests[1].headers.Authorization, 'Bearer bob-access');
   assert.equal((await fixture().api.status()).connected, false);
@@ -160,12 +164,86 @@ test('an older tab cannot erase another account or let a stale unauthorized resp
   assert.equal((await fixture({ getStorage: () => f.storage, now: f.config.now }).api.status()).connected, true);
   let release;
   f.calls.wait = new Promise(resolve => { release = resolve; }); const oldRead = f.api.read('holdings');
+  await Promise.resolve();
   f.calls.token = 'carol-access'; await f.api.login(); f.calls.failure = 401; release();
   assert.equal((await oldRead).status, 'reauthentication_required');
   assert.equal((await f.api.status()).connected, true);
   const reopened = fixture({ getStorage: () => f.storage, now: f.config.now });
   assert.equal((await reopened.api.read('holdings')).status, 'success');
   assert.equal(reopened.calls.requests[0].headers.Authorization, 'Bearer carol-access');
+});
+test('a fresh app restores the committed IndexedDB backup when localStorage is empty or unavailable', async () => {
+  const indexedDB = new IDBFactory();
+  const backup = () => createIndexedAuthStorage({ getIndexedDB: () => indexedDB });
+  const f = fixture({ backup: backup() }); await f.api.login();
+  assert.equal((await f.api.status()).loginRemembered, true);
+  f.advance(20 * 60_000);
+  for (const getStorage of [() => memoryStorage(), () => { throw new Error('localStorage blocked'); }]) {
+    const reopened = fixture({ backup: backup(), getStorage, now: f.config.now });
+    assert.equal((await reopened.api.status()).connected, true);
+    assert.equal((await reopened.api.status()).loginRemembered, true);
+    assert.equal(reopened.calls.delay, 40 * 60_000 - 10_000);
+    assert.equal((await reopened.api.read('holdings')).status, 'success');
+    assert.equal(reopened.calls.requests[0].headers.Authorization, 'Bearer alice-access');
+    assert.equal(reopened.calls.auth.length, 0);
+  }
+});
+test('login waits for a verified storage write and reports when this device cannot remember', async () => {
+  let release;
+  const writing = new Promise(resolve => { release = resolve; });
+  const f = fixture({ backup: { read: async () => null, write: async () => { await writing; return true; }, remove: async () => {} } });
+  let completed = false;
+  const login = f.api.login().then(result => { completed = true; return result; });
+  await Promise.resolve(); assert.equal(completed, false);
+  release(); assert.equal((await login).status, 'success');
+  const unavailable = fixture({ getStorage: () => ({ getItem: () => null, setItem() {}, removeItem() {} }) });
+  await unavailable.api.login();
+  assert.equal((await unavailable.api.status()).loginRemembered, false);
+  assert.equal((await unavailable.api.read('holdings')).status, 'success');
+});
+test('logout and Google rejection clear both stores before a new app can restore them', async () => {
+  for (const action of ['logout', 'revoked']) {
+    const indexedDB = new IDBFactory();
+    const backup = () => createIndexedAuthStorage({ getIndexedDB: () => indexedDB });
+    const f = fixture({ backup: backup() }); await f.api.login();
+    if (action === 'logout') await f.api.logout();
+    else { f.calls.failure = 401; assert.equal((await f.api.read('holdings')).status, 'reauthentication_required'); }
+    assert.equal(f.storage.length, 0);
+    const reopened = fixture({ backup: backup(), now: f.config.now });
+    assert.equal((await reopened.api.status()).connected, false);
+    assert.equal((await reopened.api.read('holdings')).status, 'reauthentication_required');
+  }
+});
+test('expired or incomplete backup tokens are deleted instead of restoring a session', async () => {
+  const indexedDB = new IDBFactory();
+  const backup = createIndexedAuthStorage({ getIndexedDB: () => indexedDB });
+  const config = { clientId: 'test-client.apps.googleusercontent.com', deploymentId: 'test-api-deployment-1234567890' };
+  const key = `stockfolio.google-auth.v1:${config.clientId}`, now = Date.now();
+  for (const saved of [
+    { version: 1, clientId: config.clientId, access_token: 'expired', scope: SCRIPT_SCOPES.join(' '), expiry_date: now - 1 },
+    { version: 1, clientId: config.clientId, access_token: 'incomplete', scope: SCRIPT_SCOPES[0], expiry_date: now + 3600_000 },
+  ]) {
+    await backup.write(key, JSON.stringify(saved));
+    const reopened = fixture({ ...config, backup, now: () => now });
+    assert.equal((await reopened.api.status()).connected, false);
+    assert.equal(await backup.read(key), null);
+    assert.equal(reopened.storage.length, 0);
+  }
+});
+test('delayed backup reads and writes cannot undo logout', async () => {
+  let completeRead, completeWrite;
+  const records = new Map();
+  const backup = {
+    read: () => new Promise(resolve => { completeRead = resolve; }),
+    write: async (key, value) => { await new Promise(resolve => { completeWrite = resolve; }); records.set(key, value); return true; },
+    remove: async (key, expected) => { if (records.get(key) === expected) records.delete(key); },
+  };
+  const f = fixture({ backup }); const login = f.api.login();
+  await f.api.logout(); completeWrite();
+  assert.equal((await login).status, 'cancelled');
+  assert.equal(records.size, 0);
+  completeRead(JSON.stringify({ version: 1, clientId: f.config.clientId, access_token: 'old-access', scope: SCRIPT_SCOPES.join(' '), expiry_date: f.config.now() + 3600_000 }));
+  assert.equal((await f.api.status()).connected, false);
 });
 test('partial scopes, expired grants, unavailable SDK and cancelled popups stay on the login gate', async () => {
   const f = fixture(); f.calls.scope = SCRIPT_SCOPES[0]; assert.equal((await f.api.login()).status, 'scope_required');

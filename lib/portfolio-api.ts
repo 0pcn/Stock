@@ -1,4 +1,4 @@
-export type Connection = { mode: 'local' | 'hosted' | 'pages'; configured?: boolean; connected?: boolean; configurationError?: string; signInPath?: string; signOutPath?: string; priceRefreshConfigured?: boolean };
+export type Connection = { mode: 'local' | 'hosted' | 'pages'; configured?: boolean; connected?: boolean; configurationError?: string; signInPath?: string; signOutPath?: string; priceRefreshConfigured?: boolean; loginRemembered?: boolean; loginExpiresAt?: number };
 export type PortfolioApi = {
   status(): Promise<Connection>;
   read(source: string): Promise<any>;
