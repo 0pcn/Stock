@@ -36,9 +36,15 @@ test('Pages starts on the login gate and cannot read or update before Google con
 });
 test('Pages requests a popup directly from the click and uses only a public Client ID', async () => {
   const f = fixture(); const login = f.api.login(); assert.equal(f.calls.auth.length, 1);
-  assert.equal((await login).status, 'success'); assert.equal(f.calls.prompt.prompt, 'select_account');
+  assert.equal((await login).status, 'success'); assert.equal(f.calls.prompt.prompt, '');
   assert.equal(f.calls.auth[0].scope, SCRIPT_SCOPES.join(' ')); assert.ok(!('client_secret' in f.calls.auth[0]));
   assert.equal((await f.api.status()).connected, true);
+});
+test('normal renewal avoids forced account selection and explicit account switching still selects an account', async () => {
+  const f = fixture(); await f.api.login();
+  assert.equal(f.calls.prompt.prompt, '');
+  await f.api.login({ selectAccount: true }); assert.equal(f.calls.prompt.prompt, 'select_account');
+  f.expire(); await f.api.login(); assert.equal(f.calls.prompt.prompt, '');
 });
 test('browser reads are fixed to the stock sheet, omit cookies and never call a website backend', async () => {
   const f = fixture(); await f.api.login();

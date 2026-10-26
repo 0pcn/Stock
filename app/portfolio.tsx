@@ -56,11 +56,13 @@ export default function Portfolio({ api = serverApi, baseUrl = '/' }: { api?: Po
   const [toast, setToast] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [renewalDialog, setRenewalDialog] = useState(false);
   const [syncPhase, setSyncPhase] = useState<'prices' | 'data' | null>(null);
   const [syncError, setSyncError] = useState('');
   const syncLock = useRef(false);
   const generation = useRef(0);
   const savedGeneration = useRef(0);
+  const renewalOffered = useRef(false);
   const updatesPrices = Boolean(connection?.priceRefreshConfigured);
 
   async function checkSession(loadSaved = false) {
@@ -86,7 +88,7 @@ export default function Portfolio({ api = serverApi, baseUrl = '/' }: { api?: Po
   function clearSession(signInPath?: string, keepSaved = Boolean(api.saved)) {
     generation.current++;
     setData(previous => keepSaved ? Object.fromEntries(Object.entries(previous).map(([key, source]) => [key, { ...source, loading: false }])) : {});
-    if (!keepSaved) { savedGeneration.current++; setDetail(null); setInstall(false); setTab('holdings'); setQuery(''); setMarket('全部'); }
+    if (!keepSaved) { savedGeneration.current++; setRenewalDialog(false); setDetail(null); setInstall(false); setTab('holdings'); setQuery(''); setMarket('全部'); }
     setConnection(previous => previous ? { ...previous, connected: false, ...(signInPath ? { signInPath } : {}) } : null);
     setChecking(false); setSyncError(''); setSyncPhase(null);
   }
@@ -150,7 +152,7 @@ export default function Portfolio({ api = serverApi, baseUrl = '/' }: { api?: Po
     if (!api.login || signingIn) return;
     setSigningIn(true); setAuthNotice('');
     try {
-      const login = api.login();
+      const login = api.login({ selectAccount: switchAccount });
       if (switchAccount) await api.clearSaved?.();
       const result = await login;
       if (result.status === 'success') {
@@ -190,6 +192,11 @@ export default function Portfolio({ api = serverApi, baseUrl = '/' }: { api?: Po
     return () => { unsubscribe?.(); window.removeEventListener('beforeinstallprompt', prompt); generation.current++; };
   }, []);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 3200); return () => clearTimeout(timer); }, [toast]);
+  useEffect(() => {
+    if (connection?.connected) { renewalOffered.current = false; setRenewalDialog(false); return; }
+    if (!api.login || !api.saved || !data.holdings?.savedAt || checking || signingIn || signingOut || detail || install || !navigator.onLine) return;
+    if (!renewalOffered.current) { renewalOffered.current = true; setRenewalDialog(true); }
+  }, [connection?.connected, data.holdings?.savedAt, checking, signingIn, signingOut, detail, install]);
 
   const holds = useMemo(() => records(data.holdings?.rows || []).filter(row => number(row[3]) > 0), [data.holdings?.rows]);
   const trades = useMemo(() => records(data.transactions?.rows || []).sort((a, b) => number(b[0]) - number(a[0])), [data.transactions?.rows]);
@@ -261,6 +268,7 @@ export default function Portfolio({ api = serverApi, baseUrl = '/' }: { api?: Po
     </main>
     <nav className="bottom-navigation" aria-label="底部分頁導覽">{navigation.map(item => <button key={item.id} aria-current={tab === item.id ? 'page' : undefined} className={tab === item.id ? 'active' : ''} onClick={() => changeTab(item.id)}><span><item.icon size={22} strokeWidth={tab === item.id ? 2.2 : 1.7}/></span><span>{item.label}</span></button>)}</nav>
     {detail && <Dialog title={`${stockName(detail[1])}持股明細`} close={() => setDetail(null)}><div className="detail-heading"><span className="stock-symbol">{normalizeCode(detail[0]).startsWith('00') ? 'ETF' : stockName(detail[1]).slice(0, 1)}</span><div><h2>{stockName(detail[1])}</h2><p>{normalizeCode(detail[0])} · {detail[2]} · {fmt(number(detail[3]))} 股</p></div></div><section className="detail-unrealized" aria-label="目前持股的未實現損益"><div className="detail-unrealized-heading"><h3>未實現損益</h3><span>目前持股</span></div><strong className={tone(unrealizedPosition(detail).profitLoss)}>NT$ {sgn(unrealizedPosition(detail).profitLoss)}</strong><div className="detail-unrealized-rate"><span>未實現報酬率</span><b className={tone(unrealizedPosition(detail).returnRate)}>{rate(unrealizedPosition(detail).returnRate)}</b></div><p>尚未賣出部位的損益，已實現損益與股利另列。</p></section><div className="detail-value"><span>持有市值</span><strong>NT$ {fmt(number(detail[7]))}</strong><span className="detail-pnl-label">累計價差損益</span><p className={tone(number(detail[10]))}>{sgn(number(detail[10]))}<span>{rate(number(detail[13]))}</span></p></div><div className="detail-grid">{[['平均成本', 4], ['現價', 5], ['持有成本', 6], ['已實現損益（已賣出）', 8], ['累計股利', 11]].map(([label, index]) => <div key={label}><span>{label}</span><strong>{fmt(number(detail[Number(index)]), Number(index) < 6 ? 2 : 0)}</strong></div>)}</div><div className="detail-source"><Info size={15}/><p>試算表更新：{sheetDate(detail[16], true)}<br/>累計價差損益＝已實現＋未實現，股利另列。<br/>損益沿用試算表結果，可能包含預估費用。</p></div><a className="secondary-button full-width" href={sheetURL + '#gid=985999386'} target="_blank" rel="noreferrer">查看原始試算表<ArrowUpRight size={16}/></a></Dialog>}
+    {renewalDialog && <Dialog title="要同步最新庫存嗎？" close={() => setRenewalDialog(false)}><div className="sheet-icon"><RefreshCw size={26}/></div><h2>要同步最新庫存嗎？</h2><p className="sheet-intro">Google 的更新授權已到期，目前顯示上次保存的資料。<br/>完成授權後，會接著同步最新庫存。</p>{data.holdings?.at && <p className="fine-print">庫存最後讀取：{data.holdings.at}</p>}<div className="renewal-actions"><button className="primary-button full-width" onClick={() => { setRenewalDialog(false); void signIn(true); }} disabled={signingIn}>授權並同步<ArrowUpRight size={18}/></button><button className="secondary-button full-width" onClick={() => setRenewalDialog(false)}>稍後再說</button></div><p className="fine-print">選擇稍後仍可查看庫存，想更新時再按右上角同步即可。</p></Dialog>}
     {installSheet}{toast && <div className="toast" role="status"><Check size={17}/>{toast}</div>}
   </div>;
 }

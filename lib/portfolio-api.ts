@@ -4,7 +4,7 @@ export type PortfolioApi = {
   read(source: string): Promise<any>;
   refresh(requestId: string): Promise<any>;
   logout(): Promise<any>;
-  login?(): Promise<any>;
+  login?(options?: { selectAccount?: boolean }): Promise<any>;
   initialize?(): Promise<void>;
   subscribe?(listener: (reason?: 'cleared') => void): () => void;
   canRefresh?(): boolean;
