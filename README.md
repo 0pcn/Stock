@@ -1,6 +1,6 @@
 # Stock · 藏股 Stockfolio
 
-個人台股庫存可視化網站，使用 Google Sheets 原有計算結果。私人網站由 Sites 管理登入與存取權限。
+手機優先的台股庫存網站，所有使用者固定查看同一份 Google Sheets。使用各自的 Google 授權讀取資料，具有目標試算表編輯權限的帳號才能更新現價。
 
 ## 手機 App 介面
 
@@ -12,8 +12,9 @@
 - 資產總覽、市值配置、持股損益與明細
 - 搜尋、上市／上櫃／ETF 篩選、排序、含股利切換、金額隱藏
 - 交易記錄、股利年度圖與查詢、已出清股票損益
-- 以登入者的 Google Drive 連線讀取資料，無個人庫存快照寫入程式碼
+- 以登入者自己的 Google OAuth 授權讀取資料，無個人庫存快照寫入程式碼
 - 原始值 CSV 匯出；交易新增於原始試算表操作，再按同步更新
+- 「更新現價並同步」沿用試算表原本的股票工具腳本
 - PWA manifest、192/512 圖示、Apple touch icon、service worker 與離線說明
 
 ## 本機開發（Google OAuth）
@@ -33,9 +34,17 @@ Client Secret 不會放入瀏覽器程式碼，也不會提交 Git。OAuth 使�
 
 OAuth 設定有修改時需重啟開發伺服器；未儲存的登入回呼在重新啟動後會過期。`localhost` 與 `127.0.0.1` 是不同的 cookie 網域，登入流程會使用 `GOOGLE_REDIRECT_URI` 的主機。這個 OAuth 伺服器只供本機 `npm run dev`，不支援 LAN、`npm run start` 或其他對外主機。
 
-正式 Sites 網站仍使用 Sites 管理的 ChatGPT 登入與 Google Drive 連接器。本機 OAuth 只在 Vite development middleware 運作，不包含在正式 Worker 建置，也不需要 Codex 資料橋接。本次本機修改不會自動部署至正式網站。
+正式版使用 Worker Google OAuth 與 D1，設定步驟見 `google-apps-script/production-setup.md`。本機 OAuth 使用 Vite development middleware，正式版不包含本機檔案 Token 儲存程式。Sites 對外開放登入頁，資料 API 另外檢查 Google session；不需要訪客連接 ChatGPT Google Drive 連接器。
 
-安全與授權回歸測試：`npm run test:google`。來源定義：`lib/portfolio-sources.mjs`；本機 OAuth：`scripts/local-google/server.mjs`；正式 Sites 代理：`app/api/portfolio/route.ts`。
+### 讓同步按鈕同時更新現價
+
+依 `google-apps-script/README.md` 設定同一個標準 Cloud 專案、Apps Script API 執行檔及三個腳本授權範圍，再填入 `GOOGLE_APPS_SCRIPT_DEPLOYMENT_ID` 並重新授權。這會將本機 OAuth 從唯讀改為原腳本需要的試算表寫入、外部連線與排程管理權限；程式入口固定為該股票表的現價更新。
+
+設定完成後，手動按同步會先執行試算表「股票工具 → 立即更新現價」使用的 `refreshCurrentPrices`，確認完成後才讀回五個分頁。登入或開啟頁面只讀取資料。未設定執行檔的本機版保留讀取式同步；原始資料旁的重試也只會重新讀取。正式版使用固定 API 入口的 `canEdit()` 檢查，沒有編輯權限的帳號不會執行更新。D1 保存工作狀態，跨 Worker 去重並限制同一份表的並行更新；結果不明時不自動重送。
+
+正式版的 Google Token 以 AES-GCM 加密保存於 D1；瀏覽器只持有 HttpOnly / Secure / SameSite cookie。Session 最長 30 天，Google 授權仍可能更早到期或被撤銷。登出刪除該瀏覽器對應的 session；不會撤銷其他使用者的授權。
+
+安全與授權回歸測試：`npm run test:google`（Node 22.13+；正式版測試使用內建 SQLite）。來源定義：`lib/portfolio-sources.mjs`；本機 OAuth：`scripts/local-google/server.mjs`；正式 OAuth：`lib/hosted-google.mjs`。
 
 官方參考：
 - https://developers.google.com/identity/protocols/oauth2/web-server

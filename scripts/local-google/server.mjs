@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, rename, rm, chmod } from 'node:fs/promises'
 import path from 'node:path';
 import { OAuth2Client } from 'google-auth-library';
 import getRawBody from 'raw-body';
+import { SCRIPT_SCOPES, createPriceRefreshRunner, PriceRefreshError } from './price-refresh.mjs';
 import { PORTFOLIO_SOURCES, SPREADSHEET_ID } from '../../lib/portfolio-sources.mjs';
 
 export const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -36,6 +37,9 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
   const configured = !missing.length && !configurationError;
   const fingerprint = digest(`${clientId}\n${redirectUri}`);
   const directory = path.join(root, '.sites-runtime', 'google-oauth');
+  const deploymentId = env.GOOGLE_APPS_SCRIPT_DEPLOYMENT_ID?.trim() || '';
+  const requestedScopes = deploymentId ? [...SCRIPT_SCOPES] : [GOOGLE_SCOPE];
+  const runPriceRefresh = createPriceRefreshRunner({ deploymentId, now });
   const pending = new Map();
   const sessions = new Map();
   const revoked = new Set();
@@ -50,6 +54,8 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
   const authRequired = res => json(res, 401, { status: 'reauthentication_required', message: '請登入 Google 並授權讀取股票試算表。', signInPath: `${AUTH}start` });
   async function persist(id, session) {
     if (revoked.has(id)) return false;
+    // Refresh responses may omit scope; an OAuth refresh preserves the grant.
+    session.client.credentials.scope ||= session.grantedScope;
     await mkdir(directory, { recursive: true, mode: 0o700 });
     await chmod(directory, 0o700);
     const target = sessionPath(id);
@@ -75,7 +81,7 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
           if (saved.fingerprint !== fingerprint || saved.expiresAt <= now() || !saved.tokens?.access_token) { await destroy(id); return null; }
           const client = makeClient();
           client.setCredentials(saved.tokens);
-          return { client, expiresAt: saved.expiresAt };
+          return { client, expiresAt: saved.expiresAt, grantedScope: saved.tokens.scope };
         } catch (error) { if (error.code !== 'ENOENT') await destroy(id); return null; }
       })());
     }
@@ -89,7 +95,7 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
   }
   return async function localGoogle(request, response, next) {
     const pathname = (request.url || '/').split('?')[0];
-    if (!pathname.startsWith(AUTH) && pathname !== '/api/portfolio') { next(); return; }
+    if (!pathname.startsWith(AUTH) && pathname !== '/api/portfolio' && pathname !== '/api/portfolio/refresh-prices') { next(); return; }
     response.setHeader('Cache-Control', 'private, no-store');
     response.setHeader('Referrer-Policy', 'no-referrer');
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -106,7 +112,7 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
       const jar = cookies(request);
       if (pathname === `${AUTH}status` && request.method === 'GET') {
         const session = configured ? await getSession(jar[SESSION_COOKIE]) : null;
-        json(response, 200, { mode: 'local', configured, connected: Boolean(session), missing, configurationError, signInPath: `${AUTH}start`, redirectUri }); return;
+        json(response, 200, { mode: 'local', configured, connected: Boolean(session), missing, configurationError, signInPath: `${AUTH}start`, redirectUri, priceRefreshConfigured: Boolean(deploymentId) }); return;
       }
       if (pathname === `${AUTH}start` && request.method === 'GET') {
         if (!configured) { errorPage(response, 'configuration'); return; }
@@ -128,7 +134,7 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
         const state = opaque();
         pending.set(id, { state, codeVerifier, expiresAt: now() + STATE_AGE });
         response.setHeader('Set-Cookie', cookie(STATE_COOKIE, id, STATE_AGE / 1000));
-        jump(response, client.generateAuthUrl({ access_type: 'offline', prompt: 'consent select_account', scope: [GOOGLE_SCOPE], state, code_challenge: codeChallenge, code_challenge_method: 'S256' })); return;
+        jump(response, client.generateAuthUrl({ access_type: 'offline', prompt: 'consent select_account', scope: requestedScopes, state, code_challenge: codeChallenge, code_challenge_method: 'S256' })); return;
       }
       if (pathname === CALLBACK && request.method === 'GET') {
         if (!configured || url.origin !== redirect.origin) { errorPage(response, 'configuration'); return; }
@@ -144,10 +150,11 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
           const { tokens } = await client.getToken({ code, codeVerifier: tx.codeVerifier, redirect_uri: redirectUri });
           if (!tokens.access_token) throw new Error('Missing access token');
           const scopes = tokens.scope?.split(' ') || (await client.getTokenInfo(tokens.access_token)).scopes;
-          if (!scopes.includes(GOOGLE_SCOPE)) { errorPage(response, 'scope'); return; }
+          if (!scopes.includes(GOOGLE_SCOPE) && !scopes.includes(SCRIPT_SCOPES[0])) { errorPage(response, 'scope'); return; }
+          tokens.scope = scopes.join(' ');
           client.setCredentials(tokens);
           const sessionId = opaque();
-          const session = { client, expiresAt: now() + SESSION_AGE };
+          const session = { client, expiresAt: now() + SESSION_AGE, grantedScope: tokens.scope };
           await persist(sessionId, session);
           sessions.set(sessionId, Promise.resolve(session));
           await destroy(jar[SESSION_COOKIE]);
@@ -160,6 +167,23 @@ export function createLocalGoogleMiddleware({ root, env, clientFactory = options
         await destroy(jar[SESSION_COOKIE]);
         response.setHeader('Set-Cookie', cookie(SESSION_COOKIE, '', 0));
         json(response, 200, { status: 'success' }); return;
+      }
+      if (pathname === '/api/portfolio/refresh-prices' && request.method === 'POST') {
+        const sessionId = jar[SESSION_COOKIE];
+        const session = configured ? await getSession(sessionId) : null;
+        if (!session) { authRequired(response); return; }
+        let body;
+        try { body = JSON.parse((await getRawBody(request, { limit: 2048 })).toString('utf8')); }
+        catch { request.resume(); json(response, 400, { status: 'invalid_request', message: '請求格式不正確。' }); return; }
+        try {
+          const result = await runPriceRefresh({ client: session.client, sessionKey: digest(sessionId), requestId: body?.requestId });
+          if (!await persist(sessionId, session)) { authRequired(response); return; }
+          json(response, 200, { status: 'success', result });
+        } catch (error) {
+          if (!(error instanceof PriceRefreshError)) throw error;
+          json(response, error.httpStatus, { status: error.status, message: error.message, ...(error.status === 'reauthentication_required' ? { signInPath: `${AUTH}start` } : {}), ...(error.status === 'rate_limited' ? { retryAfterMs: 60000 } : {}) });
+        }
+        return;
       }
       if (pathname === '/api/portfolio' && request.method === 'POST') {
         if (!configured) {

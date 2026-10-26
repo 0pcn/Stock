@@ -1,19 +1,7 @@
 {
-  "d1": null,
+  "d1": "DB",
   "r2": null,
-  "project_id": "appgprj_6adeccaf1b548191910ddc8e8a5dc0fc",
-  "plugins": [
-    {
-      "id": "plugin_connector_1p_ab21a553bfbc81919ea8fd1858e3ffa7",
-      "connector_ids": [
-        "connector_5f3c8c41a1e54ad7a76272c89e2554fa"
-      ]
-    }
-  ],
-  "connectors": [
-    {
-      "id": "connector_5f3c8c41a1e54ad7a76272c89e2554fa",
-      "action_selection_mode": "read_only"
-    }
-  ]
+  "plugins": [],
+  "connectors": [],
+  "project_id": "appgprj_6adeedc22068819185bf909d1f2aa8c0"
 }

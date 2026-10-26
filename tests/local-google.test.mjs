@@ -4,6 +4,7 @@ import http from 'node:http';
 import { mkdtemp, readdir, readFile, stat, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { SCRIPT_SCOPES } from '../scripts/local-google/price-refresh.mjs';
 import { createLocalGoogleMiddleware, GOOGLE_SCOPE } from '../scripts/local-google/server.mjs';
 
 async function fixture(t, options={}) {
@@ -15,7 +16,9 @@ async function fixture(t, options={}) {
     generateAuthUrl(args){const url=new URL('https://accounts.google.com/o/oauth2/v2/auth');for(const [k,v] of Object.entries(args))url.searchParams.set(k,String(v));return url.href},
     async getToken(args){calls.exchanges++;calls.verifier=args.codeVerifier;return {tokens:{access_token:'test-access-token',refresh_token:'test-refresh-token',scope:calls.scope}}},
     setCredentials(tokens){this.credentials=tokens},
-    async request(args){calls.requests.push(args);if(calls.wait)await calls.wait;if(calls.failure)throw calls.failure;this.credentials.access_token='refreshed-access-token';return {data:{range:"'庫存總覽'!A1:Q1000",values:[['股票代號'],['0050']]}}},
+    async getAccessToken(){return {token:this.credentials.access_token}},
+    async refreshAccessToken(){return {credentials:this.credentials}},
+    async request(args){calls.requests.push(args);if(calls.wait)await calls.wait;if(calls.failure)throw calls.failure;this.credentials.access_token='refreshed-access-token';if(args.url.startsWith('https://script.googleapis.com/'))return {data:{done:true,response:{result:{status:'success',updated:16,failed:[],updatedAt:'2026-10-26T05:30:00.000Z'}}}};return {data:{range:"'庫存總覽'!A1:Q1000",values:[['股票代號'],['0050']]}}},
   });
   let middleware;
   const server=http.createServer((req,res)=>{Promise.resolve(middleware(req,res,()=>{res.statusCode=404;res.end()})).catch(()=>{res.statusCode=500;res.end()})});
@@ -86,4 +89,20 @@ test('a loopback redirect may carry cross-site navigation metadata; cross-site b
  assert.equal((await raw({'sec-fetch-site':'cross-site','sec-fetch-mode':'cors','sec-fetch-dest':'empty'})).status,403);
  assert.equal((await raw({'sec-fetch-site':'cross-site','sec-fetch-mode':'navigate','sec-fetch-dest':'iframe'})).status,403);
  assert.equal((await raw({'purpose':'prefetch'})).status,204);
+});
+
+test('price updates require a signed-in session and same-origin click, while reads never execute scripts',async t=>{
+ const f=await fixture(t,{env:{GOOGLE_APPS_SCRIPT_DEPLOYMENT_ID:'test-deployment-id-1234567890'}});f.calls.scope=SCRIPT_SCOPES.join(' ');
+ const trigger=(cookie,origin=f.origin)=>f.request('/api/portfolio/refresh-prices',{method:'POST',headers:{Origin:origin,Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({requestId:'ce806bf4-ded2-4e2b-9193-4fb543b95f81',function:'initializeAll'})});
+ assert.equal((await trigger('')).status,401);const cookie=await f.login();
+ assert.equal((await trigger(cookie,'https://example.com')).status,403);
+ await f.post('holdings',cookie);assert.equal(f.calls.requests.filter(call=>call.url.startsWith('https://script.googleapis.com/')).length,0);
+ const update=await trigger(cookie);assert.equal(update.status,200);assert.equal((await update.json()).result.updated,16);
+ const calls=f.calls.requests.filter(call=>call.url.startsWith('https://script.googleapis.com/'));assert.equal(calls.length,1);assert.equal(calls[0].data.function,'stockfolioRefreshCurrentPrices');assert.deepEqual(calls[0].data.parameters,[]);
+ await trigger(cookie);assert.equal(f.calls.requests.filter(call=>call.url.startsWith('https://script.googleapis.com/')).length,1);
+});
+test('an existing read-only grant cannot execute a price update',async t=>{
+ const f=await fixture(t,{env:{GOOGLE_APPS_SCRIPT_DEPLOYMENT_ID:'test-deployment-id-1234567890'}});const cookie=await f.login();
+ const response=await f.request('/api/portfolio/refresh-prices',{method:'POST',headers:{Origin:f.origin,Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({requestId:'ce806bf4-ded2-4e2b-9193-4fb543b95f81'})});
+ assert.equal(response.status,401);assert.equal((await response.json()).status,'reauthentication_required');assert.equal(f.calls.requests.length,0);
 });
