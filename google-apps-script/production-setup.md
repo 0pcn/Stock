@@ -1,49 +1,64 @@
-# 正式版：Google 登入後共用同一份試算表
+# GitHub Pages：Google 登入後共用固定股票表
 
-目標網站：`https://pin-stockfolio-shared.craftycamel2049.chatgpt.site`
+正式網址：`https://0pcn.github.io/Stock/`
 
-這份程式固定使用原本的股票試算表，不讓訪客輸入其他試算表、範圍或函式。每位訪客以自己的 Google Token 呼叫 API。只具有檢視權限的帳號可以讀取，更新現價則由 Apps Script 入口檢查庫存範圍的編輯權限；沒有編輯權限就回傳 forbidden。
+## 1. Google OAuth 用戶端
 
-## Google 端的一次性設定
+Google Cloud `Stock`（`stock-512804`）→ Google Auth Platform → 用戶端 → 選擇既有 Web application Client。
 
-1. Google Cloud 的 `Stock` 專案（`stock-512804`）→ Google Auth Platform → 用戶端 → 現有網站 OAuth client → 授權重新導向 URI 新增：
+在 **已授權的 JavaScript 來源**加入：
 
-   ```text
-   https://pin-stockfolio-shared.craftycamel2049.chatgpt.site/api/auth/google/callback
-   ```
+```text
+https://0pcn.github.io
+http://localhost:5173
+http://127.0.0.1:5173
+```
 
-   保留既有 localhost 回呼。此程式使用伺服器 OAuth，不必為每個使用者建立 Client，也不必讓他們加入 Cloud 專案。
+來源只包含協定、主機與必要的 port，不包含 `/Stock/`。GitHub Pages 使用 Google Identity Services 彈出視窗的 token model，無須新增伺服器回呼網址，也不使用 Client Secret。既有其他用途的回呼網址可保留。
 
-2. Google Auth Platform → Data Access 確認三個範圍仍存在：
-   - `https://www.googleapis.com/auth/spreadsheets`
-   - `https://www.googleapis.com/auth/script.external_request`
-   - `https://www.googleapis.com/auth/script.scriptapp`
+`pages/google-config.json` 只放公開 Client ID 與 API 執行檔部署 ID。
 
-3. Google Auth Platform → 目標對象：測試模式只允許 Test users。要讓名單以外的帳號授權，需要發布到正式環境；公開提供敏感範圍時可能需要 Google 驗證。未驗證狀態可能有警告與使用者上限，不能把「發布」當作已完成驗證。應用程式的首頁與隱私權說明可使用正式網站及 `/privacy`。
+## 2. API 與授權範圍
 
-4. 在綁定試算表的 Apps Script，將既有 `stockfolioRefreshCurrentPrices()` 換成同目錄 `stockfolio-api.gs` 的版本。只替換這個入口，不要刪除原本股票工具程式。
+在同一個 Cloud 專案啟用 Google Sheets API 與 Google Apps Script API。
 
-5. Apps Script → 部署 → 管理部署作業 → 選擇現有 API 執行檔 → 編輯：版本使用「新版本」，誰可以存取改為已登入 Google 的使用者（ANYONE），再部署。若 Google 要求新增部署而部署 ID 改變，請同步更新網站的 `GOOGLE_APPS_SCRIPT_DEPLOYMENT_ID`。不要部署為匿名 Web App，也不要改成以擁有者代為執行。
+Data Access 包含原股票腳本的三個範圍：
 
-6. 要讓某位訪客可以更新，將這份試算表分享給該 Google 帳號為「編輯者」。網站本身不會新增任何試算表共用權限。
+- `https://www.googleapis.com/auth/spreadsheets`
+- `https://www.googleapis.com/auth/script.external_request`
+- `https://www.googleapis.com/auth/script.scriptapp`
 
-## Sites 的正式設定
+最後一項來自原腳本的排程功能。Apps Script API 要求授權涵蓋整份腳本的範圍；網站只呼叫固定的現價更新函式，不新增排程。
 
-在 `.openai/hosting.json` 宣告 D1 `DB`，發布時由 Sites 套用 `drizzle/` 的 schema migrations。透過 Sites runtime secrets 設定：
+在目標對象 Audience 設定使用者：Testing 模式只允許 Test users。正式提供其他帳號使用時，依 Google 要求發布與驗證；未驗證應用可能有警告與使用者上限，發布不代表已完成驗證。
 
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_REDIRECT_URI`（上方完整 HTTPS 回呼）
-- `GOOGLE_APPS_SCRIPT_DEPLOYMENT_ID`
-- `GOOGLE_TOKEN_ENCRYPTION_KEY`（32 bytes 隨機值，以 base64url 表示）
+首頁可使用 `https://0pcn.github.io/Stock/`，隱私權說明為 `https://0pcn.github.io/Stock/privacy.html`。
 
-金鑰只保存於託管環境，不能提交 Git、寫入 hosting manifest 或前端。改變加密金鑰會讓既有登入失效。網站入口的 Sites audience 設為 public，讓一般訪客抵達 Google 登入頁；所有財務資料 API 仍要求有效的 Google session。
+## 3. Apps Script 執行入口
 
-## 驗證
+股票腳本與網站 OAuth Client 必須共用同一個標準 Cloud 專案。
 
-- 未登入 API 必須拒絕讀取與更新。
-- 編輯者登入後應能讀取五個分頁，手動更新現價應成功，且試算表更新時間改變。
-- 檢視者可讀，但更新必須收到沒有編輯權限的訊息。
-- 完全沒有試算表權限者不得讀取庫存。
-- 登出後資料應清除，再次呼叫 API 必須被拒絕。
-- Google 授權或網路中斷後，不應自動重送更新。
+把 `stockfolio-api.gs` 的固定入口加入原股票腳本；如果入口已存在，只替換同名函式，不要重複加入或刪除其他股票工具函式。此版本使用 `canEdit()` 在更新前檢查庫存範圍權限。
+
+Apps Script → 部署 → 管理部署作業 → 編輯目前 API 執行檔：
+
+1. 選擇新版本，包含更新後的入口。
+2. 「誰可以存取」改成已登入 Google 的使用者（ANYONE），才能接受其他帳號的呼叫。
+3. 部署。若產生新部署 ID，更新 `pages/google-config.json` 再推送 GitHub。
+
+不要改成以擁有者代為執行的 Web App。每位訪客必須用自己的 Google 授權。沒有試算表存取權限者無法讀取；檢視者不能更新現價。若要新增可更新的人，請在 Google 試算表共用設定加入該帳號為編輯者。
+
+## 4. 操作驗證
+
+- 未登入應顯示登入頁，不會讀取庫存。
+- 用編輯者帳號登入，庫存應成功載入。
+- 按更新現價，成功後庫存明細的試算表更新時間應改變。
+- 檢視者的價格更新應被拒絕；完全沒有權限者不能讀取。
+- 登出或授權到期，畫面資料及分頁中的 Token 應清除。
+- 網路中斷或結果不明，不會自動重送更新。
+
+## 官方參考
+
+- https://developers.google.com/identity/oauth2/web/guides/use-token-model
+- https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid
+- https://developers.google.com/apps-script/api/how-tos/execute

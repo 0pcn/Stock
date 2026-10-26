@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { serverApi, type PortfolioApi, type Connection } from '../lib/portfolio-api';
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpRight, ChartNoAxesCombined, Check, ChevronRight, Eye, EyeOff, Flower2, Info, Leaf, LoaderCircle, LogOut, Plus, RefreshCw, Search, Settings, ShieldCheck, SlidersHorizontal, Smartphone, Wallet, X } from 'lucide-react';
 
 type Row = (string | number | null)[];
-type Connection = { mode: 'local' | 'hosted'; configured?: boolean; connected?: boolean; missing?: string[]; configurationError?: string; signInPath?: string; signOutPath?: string; priceRefreshConfigured?: boolean };
 type Source = { rows: Row[]; loading: boolean; error: string; status?: string; at?: string; retryAt?: number };
 type Tab = 'holdings' | 'overview' | 'transactions' | 'dividends' | 'settings';
 const sourceNames: Record<string, string> = { holdings: '庫存總覽', realized: '已實現損益', transactions: '交易記錄', dividends: '股利記錄', settings: '設定' };
@@ -39,7 +39,7 @@ function Dialog({ title, close, children }: { title: string; close: () => void; 
   return <div className="sheet-backdrop" onClick={close}><section ref={element} className="bottom-sheet" role="dialog" aria-modal="true" aria-label={title} onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') close(); if (event.key !== 'Tab') return; const focusable = Array.from(element.current?.querySelectorAll<HTMLElement>('a[href],button,input,select') || []); const first = focusable[0], last = focusable.at(-1); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }}><div className="sheet-handle"/><button className="icon-button sheet-close" aria-label="關閉" onClick={close}><X size={21}/></button>{children}</section></div>;
 }
 
-export default function Portfolio() {
+export default function Portfolio({ api = serverApi, baseUrl = '/' }: { api?: PortfolioApi; baseUrl?: string }) {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [checking, setChecking] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -58,6 +58,7 @@ export default function Portfolio() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [toast, setToast] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [syncPhase, setSyncPhase] = useState<'prices' | 'data' | null>(null);
   const [syncError, setSyncError] = useState('');
   const syncLock = useRef(false);
@@ -68,10 +69,8 @@ export default function Portfolio() {
     const version = generation.current;
     setChecking(true); setAuthError('');
     try {
-      const response = await fetch('/api/auth/google/status', { cache: 'no-store' });
-      if (!response.ok) throw new Error();
-      const result = await response.json() as Connection;
-      if (!['local', 'hosted'].includes(result.mode) || typeof result.connected !== 'boolean') throw new Error();
+      const result = await api.status();
+      if (!['local', 'hosted', 'pages'].includes(result.mode) || typeof result.connected !== 'boolean') throw new Error();
       if (version === generation.current) setConnection(result);
     } catch { if (version === generation.current) setAuthError('目前無法確認登入狀態，請確認網路後再試一次。'); }
     finally { if (version === generation.current) setChecking(false); }
@@ -85,8 +84,7 @@ export default function Portfolio() {
     const version = generation.current;
     setData(previous => ({ ...previous, [key]: { ...previous[key], rows: previous[key]?.rows || [], loading: true, error: '' } }));
     try {
-      const response = await fetch('/api/portfolio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: key }), cache: 'no-store' });
-      const result: any = await response.json();
+      const result: any = await api.read(key);
       if (version !== generation.current) return false;
       if (result.status === 'reauthentication_required') { setAuthNotice('登入狀態已過期，請重新登入以查看庫存。'); clearSession(result.signInPath); return false; }
       if (result.status !== 'success') {
@@ -112,8 +110,7 @@ export default function Portfolio() {
         if (reads.every(Boolean)) setToast('已重新讀取試算表資料');
         return;
       }
-      const response = await fetch('/api/portfolio/refresh-prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: crypto.randomUUID() }), cache: 'no-store' });
-      const outcome: any = await response.json();
+      const outcome: any = await api.refresh(crypto.randomUUID());
       if (version !== generation.current) return;
       if (outcome.status === 'reauthentication_required') {
         setAuthNotice(outcome.message || '更新現價需要重新登入。完成授權後，請再次按同步。');
@@ -130,12 +127,21 @@ export default function Portfolio() {
     } catch { if (version === generation.current) setSyncError('連線中斷，尚未確認現價是否更新完成。請先查看試算表，再決定是否重試。'); }
     finally { syncLock.current = false; setSyncPhase(null); }
   }
+  async function signIn() {
+    if (!api.login || signingIn) return;
+    setSigningIn(true); setAuthNotice('');
+    try {
+      const result = await api.login();
+      if (result.status === 'success') await checkSession();
+      else setAuthNotice(result.message || 'Google 登入尚未完成。');
+    } catch { setAuthNotice('Google 登入暫時無法使用，請稍後重試。'); }
+    finally { setSigningIn(false); }
+  }
   async function signOut() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      const response = await fetch('/api/auth/google/logout', { method: 'POST' });
-      const result: any = await response.json();
+      const result: any = await api.logout();
       if (result.status !== 'success') throw new Error();
       clearSession(); setAuthNotice('你已安全登出。');
     } catch { setToast('登出未完成，請稍後再試。'); }
@@ -145,11 +151,13 @@ export default function Portfolio() {
     const notices: Record<string, string> = { denied: 'Google 授權已取消，你可以隨時重新登入。', expired: '登入驗證已過期，請重新登入。', configuration: '連線設定尚未完成，請確認 Google OAuth 設定。', scope: '請允許股票工具所需的三個 Google 權限，再重新登入。', failed: 'Google 登入未完成，請確認 OAuth 設定後再試一次。' };
     const result = new URLSearchParams(window.location.search).get('google_auth');
     if (result) { setAuthNotice(notices[result] || ''); window.history.replaceState({}, '', window.location.pathname); }
+    void api.initialize?.().catch(() => setAuthNotice('無法載入 Google 登入，請確認網路後再試一次。'));
+    const unsubscribe = api.subscribe?.(() => { setAuthNotice('Google 授權已到期，請重新登入。'); clearSession(); });
     void checkSession();
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) void navigator.serviceWorker.register(baseUrl + 'sw.js', { scope: baseUrl }).catch(() => {});
     const prompt = (event: Event) => { event.preventDefault(); setInstallPrompt(event); };
     window.addEventListener('beforeinstallprompt', prompt);
-    return () => { window.removeEventListener('beforeinstallprompt', prompt); generation.current++; };
+    return () => { unsubscribe?.(); window.removeEventListener('beforeinstallprompt', prompt); generation.current++; };
   }, []);
   useEffect(() => { if (connection?.connected) Object.keys(sourceNames).forEach(key => void readSource(key)); }, [connection?.connected]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 3200); return () => clearTimeout(timer); }, [toast]);
@@ -189,12 +197,12 @@ export default function Portfolio() {
   const installSheet = install && <Dialog title="加入主畫面" close={() => setInstall(false)}><div className="sheet-icon"><Smartphone size={26}/></div><h2>把藏股，放進口袋。</h2><p className="sheet-intro">下次輕點主畫面圖示，就能打開你的庫存。</p>{installPrompt && <button className="primary-button full-width" onClick={async () => { await installPrompt.prompt(); await installPrompt.userChoice; setInstallPrompt(null); }}>安裝藏股<ArrowDownToLine size={18}/></button>}<div className="help-step"><strong>iPhone / iPad</strong><p>使用 Safari 開啟網站，點「分享」→「加入主畫面」→「新增」。若出現「以網頁 App 開啟」，請開啟。</p></div><div className="help-step"><strong>Android / 電腦</strong><p>在 Chrome 或 Edge 的選單中選擇「安裝應用程式」或「加入主畫面」。</p></div><p className="fine-print">查看股票資料需要網路連線；首次從主畫面開啟可能需要重新登入。</p></Dialog>;
 
   if (checking || !connection?.connected) return <main className="login-screen">
-    <header className="login-brand"><img src="/icon.svg" alt=""/><span>藏股<small>STOCKFOLIO</small></span></header>
+    <header className="login-brand"><img src={baseUrl + 'icon.svg'} alt=""/><span>藏股<small>STOCKFOLIO</small></span></header>
     <div className="login-content"><div className="login-art" aria-hidden="true"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-leaf"><Leaf size={27}/></div><div className="art-card art-card-back"/><div className="art-card"><span className="art-card-heading"><Wallet size={19}/>MY PORTFOLIO<ShieldCheck size={16}/></span><div className="art-bars"><i/><i/><i/><i/><i/></div><div className="art-card-footer"><span/><span/></div></div><span className="art-check"><Check size={20}/></span></div>
       <p className="eyebrow">YOUR INVESTMENT, AT A GLANCE</p><h1>你的庫存，<br/>一眼就懂。</h1><p className="login-description">把持股、損益與股利放在一起，<br/>每一份累積，都清楚可見。</p>
       {checking ? <div className="login-loading" role="status"><LoaderCircle className="spin" size={20}/>正在確認登入狀態</div> : <div className="login-actions">
-        {authError ? <><p className="login-message" role="alert">{authError}</p><button className="primary-button full-width" onClick={() => void checkSession()}><RefreshCw size={18}/>重新連線</button></> : connection?.configured ? <a className="google-signin" href={connection.signInPath || '/api/auth/google/start'} target="_top"><GoogleMark/><span>使用 Google 帳號登入</span><ArrowUpRight size={17}/></a> : <div className="login-message" role="alert"><Info size={19}/><p>連線設定尚未完成。<br/>{connection?.configurationError || '請確認 Google OAuth 設定後再試一次。'}</p><button className="text-button" onClick={() => void checkSession()}>重新檢查<RefreshCw size={14}/></button></div>}
-        {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}<p className="login-caption">使用有這份試算表權限的帳號；更新現價需要編輯權限</p><a className="text-button" href="/privacy">隱私權說明</a>
+        {authError ? <><p className="login-message" role="alert">{authError}</p><button className="primary-button full-width" onClick={() => void checkSession()}><RefreshCw size={18}/>重新連線</button></> : connection?.configured ? (api.login ? <button className="google-signin full-width" onClick={() => void signIn()} disabled={signingIn}><GoogleMark/><span>{signingIn ? '正在登入 Google' : '使用 Google 帳號登入'}</span><ArrowUpRight size={17}/></button> : <a className="google-signin" href={connection.signInPath || '/api/auth/google/start'} target="_top"><GoogleMark/><span>使用 Google 帳號登入</span><ArrowUpRight size={17}/></a>) : <div className="login-message" role="alert"><Info size={19}/><p>連線設定尚未完成。<br/>{connection?.configurationError || '請確認 Google OAuth 設定後再試一次。'}</p><button className="text-button" onClick={() => void checkSession()}>重新檢查<RefreshCw size={14}/></button></div>}
+        {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}<p className="login-caption">使用有這份試算表權限的帳號；更新現價需要編輯權限</p><a className="text-button" href={baseUrl + (connection?.mode === 'pages' ? 'privacy.html' : 'privacy')}>隱私權說明</a>
       </div>}
     </div><footer className="login-footer"><ShieldCheck size={15}/><span>Google 授權・固定試算表</span><button onClick={() => setInstall(true)} aria-label="查看加入主畫面說明"><Smartphone size={17}/></button></footer>{installSheet}
   </main>;
@@ -218,7 +226,7 @@ export default function Portfolio() {
       </>}
       {tab === 'transactions' && <>{errorPanel('transactions')}<div className="section-toolbar"><p>每一次買賣，都有跡可循。</p><a className="compact-action" href={sheetURL + '#gid=419336587'} target="_blank" rel="noreferrer"><Plus size={16}/>記錄交易<ArrowUpRight size={13}/></a></div>{search('搜尋交易')}<div className="stock-filters"><div className="chips">{['全部', '買入', '賣出'].map(item => <button key={item} className={market === item ? 'selected' : ''} onClick={() => setMarket(item)}>{item}</button>)}</div><button className="icon-button" aria-label="匯出交易記錄" onClick={() => exportCSV('transactions')}><ArrowDownToLine size={18}/></button></div><section className="record-list" aria-label="交易清單">{filteredTrades.map((row, index) => <article className="record-card" key={index}>{(index === 0 || sheetDate(filteredTrades[index - 1][0]) !== sheetDate(row[0])) && <time className="record-date">{sheetDate(row[0])}</time>}<div className="record-top"><span className={`trade-type ${row[4] === '買入' ? 'buy' : 'sell'}`}>{row[4] === '買入' ? '買' : '賣'}</span><div><h3>{stockName(row[2])}</h3><p>{normalizeCode(row[1])} · {fmt(number(row[5]))} 股</p></div><div className="record-number"><strong>{fmt(number(row[9]))}</strong><small>{row[4] === '買入' ? '實際成本' : '實際收入'}</small></div></div><div className="record-meta"><span>成交價 {fmt(number(row[6]), 2)}</span><span>手續費 {fmt(number(row[7]))} · 稅 {fmt(number(row[8]))}</span></div>{row[10] && <p className="record-note">{row[10]}</p>}</article>)}{!filteredTrades.length && <Empty loading={data.transactions?.loading} title="沒有符合條件的交易"/>}</section><p className="data-caption">共 {filteredTrades.length} 筆・記錄交易會開啟原始試算表</p></>}
       {tab === 'dividends' && <>{errorPanel('dividends')}<section className="dividend-summary"><span><Flower2 size={17}/>{year === '全部年度' ? '歷年累計股利' : year + ' 年股利'}</span><strong><small>NT$</small>{fmt(dividendsTotal)}</strong><p>{filteredDividends.length} 筆配息 · {new Set(filteredDividends.map(row => normalizeCode(row[0]))).size} 檔股票</p></section><section className="content-card year-chart" aria-label="歷年股利圖">{[...years].reverse().map(item => { const amount = dividends.filter(row => sheetDate(row[2]).startsWith(item)).reduce((sum, row) => sum + number(row[5]), 0); const max = Math.max(1, ...years.map(year => dividends.filter(row => sheetDate(row[2]).startsWith(year)).reduce((sum, row) => sum + number(row[5]), 0))); return <button key={item} className={year === item ? 'selected' : ''} onClick={() => setYear(year === item ? '全部年度' : item)}><span>{fmt(amount)}</span><i style={{ height: Math.max(5, amount / max * 78) + 'px' }}/><strong>{item}</strong></button>; })}</section><div className="dividend-filters"><select aria-label="股利年度" value={year} onChange={event => setYear(event.target.value)}><option>全部年度</option>{years.map(item => <option key={item}>{item}</option>)}</select><button className="icon-button" aria-label="匯出股利記錄" onClick={() => exportCSV('dividends')}><ArrowDownToLine size={18}/></button></div>{search('搜尋股利')}<section className="record-list dividends-list" aria-label="股利清單">{filteredDividends.map((row, index) => <article className="record-card" key={index}><div className="record-top"><span className="dividend-icon"><Flower2 size={20}/></span><div><h3>{stockName(row[1])}</h3><p>{normalizeCode(row[0])} · {sheetDate(row[2])} 除息</p></div><div className="record-number"><strong>{fmt(number(row[5]))}</strong><small>實際領到股利</small></div></div><div className="record-meta"><span>每股 {fmt(number(row[3]), 4)}</span><span>當日持有 {fmt(number(row[4]))} 股</span></div></article>)}{!filteredDividends.length && <Empty loading={data.dividends?.loading} title="沒有符合條件的股利"/>}</section><p className="data-caption">依實際領到股利欄位加總，與庫存表可能有四捨五入差異。</p></>}
-      {tab === 'settings' && <><section className="account-card"><span className="account-avatar"><Leaf size={25}/></span><div><h2>我的投資帳戶</h2><p><span className="status-dot"/>Google 已安全連接</p></div><ShieldCheck size={23}/></section><h2 className="group-title">顯示偏好</h2><section className="settings-group"><div className="settings-row"><span className="settings-icon"><ChartNoAxesCombined size={19}/></span><div><strong>報酬率包含股利</strong><p>切換僅影響目前的顯示方式</p></div>{includeToggle}</div><div className="settings-row"><span className="settings-icon"><EyeOff size={19}/></span><div><strong>隱藏財務數字</strong><p>隱藏金額、報酬率與持有股數</p></div><label className="switch-label"><input type="checkbox" aria-label="隱藏財務數字" checked={hidden} onChange={event => setHidden(event.target.checked)}/><span className="switch"/></label></div></section><h2 className="group-title">資料與連線</h2><section className="settings-group"><a className="settings-row" href={sheetURL} target="_blank" rel="noreferrer"><span className="settings-icon"><Wallet size={19}/></span><div><strong>股票V2 試算表</strong><p>查看或編輯原始資料</p></div><ArrowUpRight size={18}/></a><button className="settings-row" onClick={refresh} disabled={busy}><span className="settings-icon"><RefreshCw size={19} className={busy ? 'spin' : ''}/></span><div><strong>{updatesPrices ? '更新現價並同步' : '同步試算表資料'}</strong><p>{data.holdings?.at ? `最近讀取 ${data.holdings.at}` : updatesPrices ? '先更新現價，再讀取最新庫存' : '讀取庫存、交易與股利'}</p></div><ChevronRight size={18}/></button>{<a className="settings-row" href={connection.signInPath || '/api/auth/google/start'} target="_top"><span className="settings-icon"><GoogleMark/></span><div><strong>重新連接 Google</strong><p>切換帳號或更新授權</p></div><ArrowUpRight size={18}/></a>}</section>{Object.keys(sourceNames).map(key => <div key={key}>{errorPanel(key)}</div>)}<h2 className="group-title">匯出資料</h2><section className="settings-group">{['holdings', 'transactions', 'dividends', 'realized'].map(source => <button className="settings-row" key={source} onClick={() => exportCSV(source)}><span className="settings-icon"><ArrowDownToLine size={18}/></span><div><strong>{sourceNames[source]}</strong></div><span className="row-suffix">CSV<ChevronRight size={16}/></span></button>)}</section><h2 className="group-title">讓藏股更順手</h2><section className="settings-group"><button className="settings-row" onClick={() => setInstall(true)}><span className="settings-icon"><Smartphone size={20}/></span><div><strong>加入主畫面</strong><p>輕點圖示，直接查看庫存</p></div><ChevronRight size={18}/></button></section><p className="privacy-caption"><ShieldCheck size={16}/>股票資料不寫入離線快取。{connection.mode === 'local' ? '授權資訊僅保存在本機伺服器。' : '授權資訊加密保存在伺服器。'}</p>{<button className="signout-button" onClick={() => void signOut()} disabled={signingOut}><LogOut size={18}/>{signingOut ? '正在登出' : '登出帳戶'}</button>}<p className="app-signature">藏股 STOCKFOLIO<Leaf size={12}/></p></>}
+      {tab === 'settings' && <><section className="account-card"><span className="account-avatar"><Leaf size={25}/></span><div><h2>我的投資帳戶</h2><p><span className="status-dot"/>Google 已安全連接</p></div><ShieldCheck size={23}/></section><h2 className="group-title">顯示偏好</h2><section className="settings-group"><div className="settings-row"><span className="settings-icon"><ChartNoAxesCombined size={19}/></span><div><strong>報酬率包含股利</strong><p>切換僅影響目前的顯示方式</p></div>{includeToggle}</div><div className="settings-row"><span className="settings-icon"><EyeOff size={19}/></span><div><strong>隱藏財務數字</strong><p>隱藏金額、報酬率與持有股數</p></div><label className="switch-label"><input type="checkbox" aria-label="隱藏財務數字" checked={hidden} onChange={event => setHidden(event.target.checked)}/><span className="switch"/></label></div></section><h2 className="group-title">資料與連線</h2><section className="settings-group"><a className="settings-row" href={sheetURL} target="_blank" rel="noreferrer"><span className="settings-icon"><Wallet size={19}/></span><div><strong>股票V2 試算表</strong><p>查看或編輯原始資料</p></div><ArrowUpRight size={18}/></a><button className="settings-row" onClick={refresh} disabled={busy}><span className="settings-icon"><RefreshCw size={19} className={busy ? 'spin' : ''}/></span><div><strong>{updatesPrices ? '更新現價並同步' : '同步試算表資料'}</strong><p>{data.holdings?.at ? `最近讀取 ${data.holdings.at}` : updatesPrices ? '先更新現價，再讀取最新庫存' : '讀取庫存、交易與股利'}</p></div><ChevronRight size={18}/></button>{api.login ? <button className="settings-row" onClick={() => void signIn()} disabled={signingIn}><span className="settings-icon"><GoogleMark/></span><div><strong>重新連接 Google</strong><p>切換帳號或更新授權</p></div><ArrowUpRight size={18}/></button> : <a className="settings-row" href={connection.signInPath || '/api/auth/google/start'} target="_top"><span className="settings-icon"><GoogleMark/></span><div><strong>重新連接 Google</strong><p>切換帳號或更新授權</p></div><ArrowUpRight size={18}/></a>}</section>{Object.keys(sourceNames).map(key => <div key={key}>{errorPanel(key)}</div>)}<h2 className="group-title">匯出資料</h2><section className="settings-group">{['holdings', 'transactions', 'dividends', 'realized'].map(source => <button className="settings-row" key={source} onClick={() => exportCSV(source)}><span className="settings-icon"><ArrowDownToLine size={18}/></span><div><strong>{sourceNames[source]}</strong></div><span className="row-suffix">CSV<ChevronRight size={16}/></span></button>)}</section><h2 className="group-title">讓藏股更順手</h2><section className="settings-group"><button className="settings-row" onClick={() => setInstall(true)}><span className="settings-icon"><Smartphone size={20}/></span><div><strong>加入主畫面</strong><p>輕點圖示，直接查看庫存</p></div><ChevronRight size={18}/></button></section><p className="privacy-caption"><ShieldCheck size={16}/>股票資料不寫入離線快取。{connection.mode === 'pages' ? 'Google 授權只保留在目前分頁，重新整理後需再次登入。' : connection.mode === 'local' ? '授權資訊僅保存在本機伺服器。' : '授權資訊加密保存在伺服器。'}</p>{<button className="signout-button" onClick={() => void signOut()} disabled={signingOut}><LogOut size={18}/>{signingOut ? '正在登出' : '登出帳戶'}</button>}<p className="app-signature">藏股 STOCKFOLIO<Leaf size={12}/></p></>}
     </main>
     <nav className="bottom-navigation" aria-label="底部分頁導覽">{navigation.map(item => <button key={item.id} aria-current={tab === item.id ? 'page' : undefined} className={tab === item.id ? 'active' : ''} onClick={() => changeTab(item.id)}><span><item.icon size={22} strokeWidth={tab === item.id ? 2.2 : 1.7}/></span><span>{item.label}</span></button>)}</nav>
     {detail && <Dialog title={`${stockName(detail[1])}持股明細`} close={() => setDetail(null)}><div className="detail-heading"><span className="stock-symbol">{normalizeCode(detail[0]).startsWith('00') ? 'ETF' : stockName(detail[1]).slice(0, 1)}</span><div><h2>{stockName(detail[1])}</h2><p>{normalizeCode(detail[0])} · {detail[2]} · {fmt(number(detail[3]))} 股</p></div></div><div className="detail-value"><span>持有市值</span><strong>NT$ {fmt(number(detail[7]))}</strong><p className={tone(number(detail[includeDiv ? 12 : 10]))}>{sgn(number(detail[includeDiv ? 12 : 10]))}<span>{rate(number(detail[includeDiv ? 14 : 13]))}</span></p></div><div className="detail-grid">{[['平均成本', 4], ['現價', 5], ['持有成本', 6], ['已實現損益', 8], ['未實現損益', 9], ['累計股利', 11]].map(([label, index]) => <div key={label}><span>{label}</span><strong>{fmt(number(detail[Number(index)]), Number(index) < 6 ? 2 : 0)}</strong></div>)}</div><div className="detail-source"><Info size={15}/><p>試算表更新：{sheetDate(detail[16], true)}<br/>損益與報酬率沿用試算表結果，可能包含預估費用。</p></div><a className="secondary-button full-width" href={sheetURL + '#gid=985999386'} target="_blank" rel="noreferrer">查看原始試算表<ArrowUpRight size={16}/></a></Dialog>}

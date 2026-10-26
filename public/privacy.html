@@ -1,0 +1,7 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1b352e"><title>藏股｜隱私權說明</title><style>body{margin:0;background:#f5f7f2;color:#243e32;font:15px/1.9 system-ui,-apple-system,sans-serif}main{max-width:680px;margin:auto;padding:40px 24px 80px}h1{font-size:28px}h2{font-size:19px;margin-top:28px}a{color:#355e49}</style></head><body><main><a href="./">← 回到藏股</a><h1>藏股 Stockfolio 隱私權說明</h1>
+<p>藏股提供固定股票試算表的庫存、損益、交易與股利查閱，並可手動執行試算表原有的現價更新程式。</p>
+<h2>Google 授權與資料</h2><p>每位使用者以自己的 Google 帳號授權。瀏覽器直接呼叫 Google Sheets 和 Apps Script。查看需要該帳號有試算表存取權限；更新現價需要編輯權限。Google 的授權範圍涵蓋試算表讀寫、腳本外部連線及原腳本的排程管理；網站只讀取固定分頁並呼叫固定的現價更新入口。</p>
+<h2>登入與儲存</h2><p>Google 存取 Token 只保留在目前分頁的 JavaScript 記憶體，不寫入 localStorage、sessionStorage、cookie 或離線快取。網站不使用 Client Secret、refresh token 或伺服器資料庫。重新整理、關閉分頁或授權到期後，需要再次登入。股票資料僅供目前畫面顯示，網站不建立共用資料快照。</p>
+<h2>外部服務</h2><p>網頁由 GitHub Pages 託管；Google Identity Services 處理登入與授權，Google Sheets／Apps Script 處理試算表及現價更新。現價來源沿用原股票腳本連接的行情服務。GitHub 及 Google 可能依各自政策記錄服務請求。網站不販售 Google 使用者資料，也不將其用於廣告。</p>
+<h2>登出與撤銷</h2><p>網站登出會清除目前分頁的 Token 及畫面資料，不會變更原始試算表。若要撤銷 Google 帳號對 stock 的授權，可到 Google 帳戶的第三方連線管理操作。</p>
+</main></body></html>
