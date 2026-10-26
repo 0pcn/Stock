@@ -1,4 +1,4 @@
-# 藏股 Stockfolio
+# Stock · 藏股 Stockfolio
 
 個人台股庫存可視化網站，使用 Google Sheets 原有計算結果。私人網站由 Sites 管理登入與存取權限。
 
