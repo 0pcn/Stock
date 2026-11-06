@@ -163,3 +163,26 @@ test('explicit logout clears the viewing state and returns to the first-login sc
   assert.equal(document.body.textContent.includes('測試 ETF'), false);
   assert.deepEqual(p.calls, ['logout']);
 });
+test('cached trades group mixed sheet dates, show the selected net income and fees, and respect privacy without writes', async t => {
+  const serial = Date.parse('2026-01-02T00:00:00Z') / 86400000 + 25569;
+  const transactions = [['日期', '代號'],
+    ['2026/1/2', '0050', '測試 ETF', '上市', '買入', 100, 10, 2, 0, 1002, '分批'],
+    [serial, '2330', '測試股票', '上市', '賣出', 50, 100, 20, 15, 4965, '部分賣出'],
+    ['2026-01-03', '0050', '測試 ETF', '上市', '買入', 200, 10, 2, 0, 2002, '']];
+  const p = await page(t, { saved: async () => ({ persisted: true, sources: { holdings: { rows, savedAt }, transactions: { rows: transactions, savedAt } } }) });
+  await p.clickText('交易');
+  const groups = [...document.querySelectorAll('.transaction-date-group')];
+  assert.deepEqual(groups.map(group => group.querySelector('time').textContent), ['2026-01-03', '2026-01-02']);
+  assert.equal(groups[1].querySelectorAll('.transaction-row').length, 2);
+  const selected = '[aria-label="2026-01-02交易"] .transaction-row:last-child';
+  await p.click(selected);
+  assert.equal(document.querySelector('.transaction-net>span').textContent, '實際收入');
+  assert.equal(document.querySelector('.transaction-net>strong').textContent, '4,965');
+  assert.deepEqual([...document.querySelectorAll('.detail-grid strong')].map(el => el.textContent), ['50 股', '100.00', '20', '15']);
+  assert.equal(document.querySelector('.transaction-detail-note p').textContent, '部分賣出');
+  await p.expire(); assert.ok(document.querySelector('.transaction-net'));
+  await p.click('[aria-label="關閉"]'); await p.click('[aria-label="隱藏金額"]'); await p.click(selected);
+  assert.equal(document.querySelector('.transaction-net>strong').textContent, '••••');
+  assert.ok([...document.querySelectorAll('.detail-grid strong')].every(el => el.textContent.startsWith('••••')));
+  assert.deepEqual(p.calls, []);
+});
