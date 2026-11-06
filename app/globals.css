@@ -14,3 +14,94 @@
 .renewal-actions{display:grid;gap:10px;margin:20px 0 14px}
 .holding-identity>.holding-shares{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 6px;font-size:11px;color:#859573}.holding-shares>b{font-weight:500;color:#405939}
 .transaction-form fieldset{border:0;padding:0;margin:0;min-width:0}.transaction-fields{display:grid;grid-template-columns:1fr 1fr;gap:15px 12px}.transaction-field{display:flex;flex-direction:column;gap:7px;min-width:0}.transaction-field>span{font-size:12px;color:#607252}.transaction-field input,.transaction-field select{width:100%;min-height:46px;padding:10px 11px;border:1px solid #dce5d2;border-radius:10px;background:#fbfcf8;color:#344d2d;font-size:16px}.transaction-field input:disabled,.transaction-field select:disabled{opacity:.7}.transaction-help{font-size:12px;line-height:1.7;color:#718266;margin:12px 0}.transaction-options{margin:18px 0}.transaction-options summary{font-size:13px;color:#587341;padding:10px 0;cursor:pointer}.transaction-options .transaction-fields{margin-top:10px}.transaction-total{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-top:1px solid #e1e8da;padding:17px 0}.transaction-total span{font-size:12px;color:#6d7f5e}.transaction-total strong{font-size:22px;color:#456334}.transaction-error{padding:12px;border:1px solid #ead5be;border-radius:10px;color:#905e30;background:#fff9f0;font-size:12px;line-height:1.8;margin:12px 0}.transaction-form>.secondary-button{margin-top:10px}
+
+/* 清爽卡片：先看到庫存，明細以每股現價與成本作比較。 */
+.clean-cards { --muted: #65735f; --gain: #ad493e; --loss: #287050; }
+.clean-cards .app-header { padding-bottom: 16px; }
+.clean-cards .app-wordmark { font-size: 12px; color: #58724c; }
+.clean-cards .app-wordmark > span { font-size: 9px; color: #6b7b60; }
+.clean-cards .portfolio-hero { background: #e8efdf; border-color: #e0e8d7; padding: 19px 20px; margin: 2px 0 0; }
+.clean-cards .portfolio-hero:after { display: none; }
+.clean-cards .hero-caption { color: #5b6d50; font-size: 13px; }
+.clean-cards .currency-label { font-size: 10px; }
+.clean-cards .hero-primary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 7px 12px; }
+.clean-cards .hero-amount { font-size: clamp(29px, 8.2vw, 40px); margin-top: 8px; letter-spacing: -.8px; }
+.clean-cards .hero-return { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.clean-cards .hero-metrics { margin-top: 16px; }
+.clean-cards .hero-metrics > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 12px; }
+.clean-cards .hero-metrics > div > span { font-size: 12px; margin: 0; color: #5b6d50; }
+.clean-cards .hero-metrics strong { font-size: 18px; }
+.clean-cards .hero-analysis { border: 0; padding: 8px 0 8px 8px; color: #526e42; }
+.clean-cards .holdings-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 2px 6px; color: #63745b; font-size: 11px; }
+.clean-cards .holdings-status > div { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.clean-cards .holdings-status .text-button { flex-shrink: 0; font-size: 11px; min-height: 44px; color: #4d6c3d; }
+.clean-cards .holdings-status time { font-variant-numeric: tabular-nums; }
+.clean-cards .storage-warning { padding: 0 2px 12px; font-size: 12px; color: #905e30; line-height: 1.7; }
+.clean-cards .holdings-notice { padding: 0 2px 12px; font-size: 12px; color: #526e42; line-height: 1.7; }
+.clean-cards .list-heading { padding: 4px 2px 7px; gap: 6px; }
+.clean-cards .list-heading h2 { font-size: 16px; color: #344f2f; white-space: nowrap; }
+.clean-cards .list-heading h2 small { display: inline; font-size: 12px; color: #63745b; font-weight: 400; margin-left: 5px; }
+.clean-cards .holdings-list-tools { display: flex; align-items: center; gap: 2px; }
+.clean-cards .holdings-list-tools .icon-button { color: #627653; }
+.clean-cards .holdings-list-tools .selected { background: #e8efdf; }
+.clean-cards .sort-control select { max-width: 110px; min-height: 44px; font-size: 12px; color: #526b44; }
+.clean-cards .holdings-filters { margin-bottom: 12px; }
+.clean-cards .holdings-filters .chips { margin-top: 8px; }
+.clean-cards .holdings-filters .chips button { color: #607451; }
+.clean-cards .holdings-column-labels { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 12px; color: #62745a; font-size: 11px; padding: 0 3px 9px; }
+.clean-cards .stock-list { border-color: #e0e7d9; border-radius: 17px; }
+.clean-cards .holding-row { padding: 19px 16px; min-height: 109px; gap: 14px; border-color: #e9eee3; }
+.clean-cards .holding-identity { gap: 7px; }
+.clean-cards .holding-identity strong { font-size: 16px; color: #304b2c; }
+.clean-cards .holding-identity > span { color: #63765a; font-size: 12px; flex-wrap: wrap; gap: 3px 5px; white-space: normal; }
+.clean-cards .holding-identity > small { font-size: 12px; color: #63765a; }
+.clean-cards .holding-numbers { min-width: 103px; gap: 6px; }
+.clean-cards .holding-numbers > strong { font-size: 19px; }
+.clean-cards .holding-numbers > small { font-size: 12px; opacity: 1; }
+.clean-cards .data-caption { font-size: 11px; color: #6b7b60; }
+.clean-cards .bottom-navigation button { font-size: 12px; color: #6d7c63; }
+.clean-cards .bottom-navigation button.active { color: #365d2c; }
+.clean-cards .saved-data-note { font-size: 12px; color: #5b714e; }
+.clean-cards .bottom-sheet { padding-left: 22px; padding-right: 22px; }
+.clean-cards .detail-heading { padding-top: 8px; }
+.clean-cards .detail-heading h2 { font-size: 24px; color: #34572b; }
+.clean-cards .detail-heading p { font-size: 12px; color: #647858; margin-top: 6px; }
+.clean-cards .detail-unrealized { margin-top: 20px; padding: 18px; background: #eaf1e2; border: 0; }
+.clean-cards .detail-unrealized-heading h3 { font-size: 13px; color: #566d48; }
+.clean-cards .detail-unrealized > strong { font-size: clamp(25px, 7.3vw, 32px); margin-top: 9px; }
+.clean-cards .detail-unrealized-rate { font-size: 12px; color: #586f49; }
+.clean-cards .detail-unrealized-rate b { font-size: 14px; }
+.clean-cards .detail-unrealized > p { font-size: 12px; color: #586f49; margin-top: 10px; }
+.clean-cards .detail-position { margin-top: 22px; }
+.clean-cards .detail-position h3, .clean-cards .detail-history h3 { font-size: 15px; color: #3d5d32; margin-bottom: 13px; }
+.clean-cards .detail-price-comparison { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: #f2f6ec; border-radius: 13px; padding: 18px 14px; gap: 12px; }
+.clean-cards .detail-price-comparison > div { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.clean-cards .detail-price-comparison > div + div { border-left: 1px solid #dae4d1; padding-left: 14px; }
+.clean-cards .detail-price-comparison span { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; font-size: 13px; color: #506b3f; }
+.clean-cards .detail-price-comparison small { font-size: 11px; color: #637858; }
+.clean-cards .detail-price-comparison strong { font-size: clamp(20px, 6.5vw, 28px); color: #304f28; letter-spacing: -.6px; overflow-wrap: anywhere; }
+.clean-cards .detail-grid { padding: 19px 0 17px; gap: 16px; }
+.clean-cards .detail-grid span { font-size: 12px; color: #607651; }
+.clean-cards .detail-grid strong { font-size: 20px; color: #3a5b2f; overflow-wrap: anywhere; }
+.clean-cards .detail-market-value { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; color: #607651; padding-bottom: 3px; }
+.clean-cards .detail-market-value strong { font-size: 17px; color: #3a5b2f; }
+.clean-cards .detail-history { margin: 20px 0; border-top: 1px solid #e1e8d9; padding-top: 18px; }
+.clean-cards .detail-history > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 13px; color: #607651; }
+.clean-cards .detail-history strong { font-size: 17px; color: #3a5b2f; white-space: nowrap; }
+.clean-cards .detail-source { color: #6a805a; background: #f4f7ef; margin-bottom: 16px; }
+.clean-cards .detail-source p { font-size: 11px; }
+.clean-cards .secondary-button { color: #526e42; font-size: 13px; }
+.clean-cards .connection-info > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 15px 0; border-bottom: 1px solid #e5ebde; font-size: 13px; color: #607651; }
+.clean-cards .connection-info strong, .clean-cards .connection-info time { color: #3a5b2f; }
+.clean-cards .sheet-intro, .clean-cards .fine-print { color: #647858; font-size: 12px; }
+@media (max-width: 360px) {
+  .clean-cards .holding-row { padding: 17px 13px; gap: 10px; }
+  .clean-cards .holding-identity strong { font-size: 15px; }
+  .clean-cards .holding-identity > span, .clean-cards .holding-identity > small { font-size: 11px; }
+  .clean-cards .holding-numbers { min-width: 92px; }
+  .clean-cards .holding-numbers > strong { font-size: 17px; }
+  .clean-cards .holding-numbers > small { font-size: 11px; }
+  .clean-cards .detail-price-comparison { padding: 15px 12px; gap: 8px; }
+  .clean-cards .detail-price-comparison > div + div { padding-left: 10px; }
+  .clean-cards .sort-control select { max-width: 96px; font-size: 11px; }
+}
