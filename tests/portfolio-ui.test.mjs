@@ -15,8 +15,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const savedAt = Date.parse('2026-10-26T08:00:00Z');
 const rows = [['代號', '名稱'], ['0050', '測試 ETF', '上市', 1000, 90, 100, 90000, 100000, 0, 10000, 10000, 0, 10000, 0.1, 0.1, 0.1, 46000]];
 
-async function page(t, overrides = {}, { keepRenewal = false } = {}) {
-  const dom = new JSDOM('<div id="root"></div>', { url: 'https://0pcn.github.io/Stock/', pretendToBeVisual: true });
+async function page(t, overrides = {}, { keepRenewal = false, hash = '' } = {}) {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'https://0pcn.github.io/Stock/' + hash, pretendToBeVisual: true });
   globalThis.window = dom.window; globalThis.document = dom.window.document;
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
   dom.window.scrollTo = () => {};
@@ -91,7 +91,7 @@ test('explicit account switching still requests the Google account chooser', asy
   assert.deepEqual(p.loginOptions, { selectAccount: true });
   assert.ok(!p.calls.includes('refresh'));
 });
-test('expired authorization opens saved inventory and keeps the detail sheet usable', async t => {
+test('expired authorization opens saved inventory and keeps the holding page usable', async t => {
   const p = await page(t);
   assert.ok(document.querySelector('[aria-label="我的持股清單"]'));
   assert.ok(document.body.textContent.includes('測試 ETF'));
@@ -99,9 +99,44 @@ test('expired authorization opens saved inventory and keeps the detail sheet usa
   assert.deepEqual(p.calls, []);
   await p.click('[aria-label="查看測試 ETF 0050持股明細"]');
   await p.expire();
-  assert.ok(document.querySelector('[role="dialog"]'));
+  assert.ok(document.querySelector('.holding-page-content'));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.querySelector('.bottom-navigation'), null);
   assert.ok(document.body.textContent.includes('未實現損益'));
   assert.equal(document.querySelector('.login-screen'), null);
+});
+test('holding page back and forward preserve list filtering, sorting, focus and scroll without Google requests', async t => {
+  const p = await page(t);
+  await p.click('[aria-label="搜尋與篩選持股"]'); await p.clickText('ETF');
+  await act(async () => { const select = document.querySelector('[aria-label="庫存排序"]'); select.value = 'return'; select.dispatchEvent(new p.dom.window.Event('change', { bubbles: true })); });
+  Object.defineProperty(window, 'scrollY', { value: 640, configurable: true, writable: true });
+  window.scrollTo = options => { window.scrollY = options.top; };
+  await p.click('.holding-row');
+  assert.equal(window.location.hash, '#holding/0050'); assert.equal(window.scrollY, 0);
+  assert.ok(document.querySelector('.holding-page-content')); assert.equal(document.querySelector('.sheet-backdrop'), null);
+  const popped = () => new Promise(resolve => window.addEventListener('popstate', resolve, { once: true }));
+  await act(async () => { const event = popped(); document.querySelector('[aria-label="返回上一頁"]').click(); await event; });
+  assert.equal(window.location.hash, ''); assert.equal(window.scrollY, 640);
+  assert.equal(document.querySelector('[aria-label="庫存排序"]').value, 'return');
+  assert.equal(document.querySelector('[aria-label="市場篩選"] [aria-pressed="true"]').textContent, 'ETF');
+  assert.ok(document.querySelector('[aria-label="搜尋庫存"]'));
+  assert.equal(document.activeElement.dataset.holdingCode, '0050');
+  await act(async () => { const event = popped(); window.history.forward(); await event; });
+  assert.ok(document.querySelector('.holding-page-content')); assert.equal(window.scrollY, 0);
+  assert.deepEqual(p.calls, []);
+});
+test('a direct holding link restores saved data and its back button stays inside the app', async t => {
+  const p = await page(t, {}, { hash: '#holding/0050' });
+  assert.ok(document.querySelector('.holding-page-content'));
+  assert.equal(document.querySelector('#holding-page-title').textContent, '測試 ETF');
+  await p.click('[aria-label="返回上一頁"]');
+  assert.equal(window.location.hash, ''); assert.ok(document.querySelector('.stock-list')); assert.equal(window.history.length, 1);
+  assert.deepEqual(p.calls, []);
+});
+test('a holding URL never exposes a position on a device without saved data or Google authorization', async t => {
+  await page(t, { saved: async () => ({ persisted: true, sources: {} }) }, { hash: '#holding/0050' });
+  assert.ok(document.querySelector('.login-screen')); assert.equal(document.querySelector('.holding-page-content'), null);
+  assert.ok(!document.body.textContent.includes('測試 ETF'));
 });
 test('clicking update opens Google immediately, then updates prices and rereads sources once', async t => {
   const p = await page(t);
@@ -185,4 +220,68 @@ test('cached trades group mixed sheet dates, show the selected net income and fe
   assert.equal(document.querySelector('.transaction-net>strong').textContent, '••••');
   assert.ok([...document.querySelectorAll('.detail-grid strong')].every(el => el.textContent.startsWith('••••')));
   assert.deepEqual(p.calls, []);
+});
+
+const dividendRows = [['股票代號', '股票名稱', '除息日', '每股現金股利', '持有股數', '實際領到股利'],
+  [50, '測試 ETF', Date.parse('2026-01-02T00:00:00Z') / 86400000 + 25569, 1, 100, 100],
+  ['0050', '測試 ETF', '2026/1/20', 2, 100, 200],
+  ['2330', '歷史股票', '2026-01-31', 5, 60, 300],
+  ['0050', '測試 ETF', '2025/1/20', 4, 100, 400],
+  ['0050', '測試 ETF', '2026/3/20', 6, 100, 600],
+  ['9999', '無配息', '-', 0, 0, 0]];
+const dividendSnapshot = async () => ({ persisted: true, sources: { holdings: { rows, savedAt }, dividends: { rows: dividendRows, savedAt } } });
+test('dividend overview defaults to latest data year, sums every stock into all 12 months, and filters records without authorizing', async t => {
+  const p = await page(t, { saved: dividendSnapshot }); await p.clickText('股利');
+  assert.equal(document.querySelector('[aria-label="股利年度"]').value, '2026');
+  assert.equal(document.querySelector('[aria-label="股利摘要"] > strong').textContent, 'NT$1,200');
+  assert.equal(document.querySelectorAll('.dividend-month').length, 12);
+  assert.equal(document.querySelector('[aria-label="1月股利"] > strong').textContent, '600');
+  assert.equal(document.querySelector('[aria-label="2月股利"] > strong').textContent, '0');
+  assert.ok(document.body.textContent.includes('依除息月份統計，非實際入帳月份'));
+  await p.click('[aria-label="1月股利"]');
+  assert.equal(document.querySelectorAll('.dividend-record').length, 3);
+  assert.equal(document.querySelector('[aria-label="股利摘要"] > strong').textContent, 'NT$1,200');
+  assert.equal(document.querySelector('.dividend-month-total strong').textContent, '600');
+  await p.click('[aria-label="2月股利"]');
+  assert.equal(document.querySelectorAll('.dividend-record').length, 0); assert.ok(document.body.textContent.includes('2 月沒有股利紀錄'));
+  await act(async () => { const select = document.querySelector('[aria-label="股利年度"]'); select.value = '2025'; select.dispatchEvent(new p.dom.window.Event('change', { bubbles: true })); });
+  assert.equal(document.querySelector('[aria-label="股利摘要"] > strong').textContent, 'NT$400');
+  assert.equal(document.querySelectorAll('.dividend-record').length, 1);
+  await act(async () => { const select = document.querySelector('[aria-label="股利年度"]'); select.value = 'all'; select.dispatchEvent(new p.dom.window.Event('change', { bubbles: true })); });
+  assert.equal(document.querySelector('[aria-label="1月股利"] > strong').textContent, '1,000');
+  assert.ok(document.body.textContent.includes('歷年同月份合計')); assert.deepEqual(p.calls, []);
+});
+test('stock dividend drilldown shows all years independent of overview year, preserves return position, and includes sold positions', async t => {
+  const p = await page(t, { saved: dividendSnapshot }); await p.clickText('股利'); await p.clickText('依股票看');
+  assert.equal(document.querySelectorAll('.dividend-stock-row').length, 2);
+  assert.ok(document.querySelector('[aria-label="各股股利清單"]').textContent.includes('歷史股票'));
+  Object.defineProperty(window, 'scrollY', { value: 250, configurable: true, writable: true });
+  window.scrollTo = options => { window.scrollY = options.top; };
+  await p.click('#dividend-stock-0050');
+  assert.equal(window.scrollY, 0);
+  assert.equal(document.querySelector('[aria-label="單股歷年股利摘要"] > strong').textContent, 'NT$1,300');
+  assert.deepEqual([...document.querySelectorAll('.dividend-year-label > strong')].map(el => el.textContent), ['2026 年', '2025 年']);
+  assert.deepEqual([...document.querySelectorAll('.dividend-year-amount > strong')].map(el => el.textContent), ['900', '400']);
+  assert.equal(document.querySelector('.dividend-year-card').open, true);
+  assert.equal(document.querySelectorAll('.dividend-year-card')[1].open, false);
+  await p.clickText('返回股利總覽');
+  assert.equal(window.scrollY, 250); assert.equal(document.activeElement.id, 'dividend-stock-0050');
+  assert.equal(document.querySelector('[aria-label="股利年度"]').value, '2026');
+  assert.equal(document.querySelector('[aria-label="股利檢視"] [aria-pressed="true"]').textContent, '依股票看'); assert.deepEqual(p.calls, []);
+});
+test('dividend privacy masks totals, per share and share counts and removes chart magnitude hints', async t => {
+  const p = await page(t, { saved: dividendSnapshot }); await p.click('[aria-label="隱藏金額"]'); await p.clickText('股利');
+  assert.equal(document.querySelector('[aria-label="股利摘要"] > strong').textContent, 'NT$••••');
+  assert.ok([...document.querySelectorAll('.dividend-month > strong')].every(el => el.textContent === '••••'));
+  assert.ok([...document.querySelectorAll('.dividend-month i > b')].every(el => el.style.width === '0%'));
+  assert.ok([...document.querySelectorAll('.dividend-record .holding-identity > small')].every(el => el.textContent.includes('每股 •••• · 持有 •••• 股')));
+  await p.clickText('依股票看'); await p.click('#dividend-stock-0050');
+  assert.ok([...document.querySelectorAll('.dividend-year-amount > strong')].every(el => el.textContent === '••••'));
+  assert.ok([...document.querySelectorAll('.dividend-year-track > i')].every(el => el.style.width === '0%')); assert.deepEqual(p.calls, []);
+});
+test('unread dividends do not imply a zero balance or enable empty month filters', async t => {
+  const p = await page(t); await p.clickText('股利');
+  assert.equal(document.querySelector('[aria-label="股利摘要"] > strong').textContent, 'NT$—');
+  assert.ok([...document.querySelectorAll('.dividend-month')].every(el => el.disabled && el.querySelector('strong').textContent === '—'));
+  assert.ok(document.body.textContent.includes('股利資料尚未讀取')); assert.deepEqual(p.calls, []);
 });

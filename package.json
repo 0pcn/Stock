@@ -17,7 +17,7 @@
     "dev:server": "node scripts/run-framework.mjs dev",
     "build:server": "node scripts/run-framework.mjs build",
     "typecheck": "tsc --noEmit",
-    "test:portfolio": "node --test tests/holding-metrics.test.mjs tests/portfolio-snapshot.test.mjs tests/portfolio-ui.test.mjs tests/service-worker.test.mjs tests/transaction-dialog.test.mjs"
+    "test:portfolio": "node --test tests/holding-metrics.test.mjs tests/portfolio-snapshot.test.mjs tests/portfolio-ui.test.mjs tests/service-worker.test.mjs tests/transaction-dialog.test.mjs tests/holding-navigation.test.mjs tests/dividend-metrics.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

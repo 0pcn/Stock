@@ -17,13 +17,15 @@ async function page(t, overrides = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost:5173/Stock/' });
   globalThis.window = dom.window; globalThis.document = dom.window.document;
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
+  const viewport = Object.assign(new dom.window.EventTarget(), { height: 844, offsetTop: 0 });
+  Object.defineProperty(dom.window, 'visualViewport', { configurable: true, value: viewport });
   const writes = []; let closes = 0, saved = 0, logins = 0;
   const api = { canRefresh: () => true, login() { logins++; return Promise.resolve({ status: 'success' }); }, async addTransaction(id, input) { writes.push({ id, input }); return { status: 'success', result: { inventoryUpdated: true } }; }, ...overrides };
   const root = createRoot(document.getElementById('root'));
   t.after(async () => { await act(async () => root.unmount()); dom.window.close(); });
   await act(async () => root.render(React.createElement(TransactionDialog, { api, suggestions: [['0050', '測試 ETF', '上市']], connected: false, close() { closes++; }, onAuthorized: async () => {}, onSaved: async () => { saved++; } })));
   const p = {
-    writes, get closes() { return closes; }, get saved() { return saved; }, get logins() { return logins; },
+    writes, viewport, dom, get closes() { return closes; }, get saved() { return saved; }, get logins() { return logins; },
     async fill(name, value) {
       const input = document.querySelector(`[name="${name}"]`);
       await act(async () => {
@@ -60,4 +62,14 @@ test('a successful write with unfinished rebuild is reported as saved and confir
   const writes = []; const p = await page(t, { async addTransaction(id) { writes.push(id); return { status: 'success', result: { inventoryUpdated: false, warning: '交易已儲存，庫存尚待更新' } }; } });
   await p.submit(); await p.submit(); assert.equal(writes[0], writes[1]); assert.equal(p.closes, 0);
   assert.ok(document.querySelector('[type="submit"]').textContent.includes('重新整理庫存'));
+});
+test('the entry sheet follows the keyboard viewport without losing entered fields or submitting', async t => {
+  const p = await page(t);
+  assert.ok(document.querySelector('.full-screen-sheet'));
+  assert.equal(document.querySelector('.sheet-backdrop').style.getPropertyValue('--sheet-height'), '844px');
+  p.viewport.height = 360; p.viewport.offsetTop = 20;
+  p.viewport.dispatchEvent(new p.dom.window.Event('resize'));
+  assert.equal(document.querySelector('.sheet-backdrop').style.getPropertyValue('--sheet-height'), '360px');
+  assert.equal(document.querySelector('.sheet-backdrop').style.getPropertyValue('--sheet-top'), '20px');
+  assert.equal(document.querySelector('[name="shares"]').value, '1000'); assert.equal(p.writes.length, 0);
 });

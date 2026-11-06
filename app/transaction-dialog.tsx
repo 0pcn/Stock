@@ -60,7 +60,7 @@ export default function TransactionDialog({ api, suggestions, connected, close, 
   }
   const field = (key: keyof typeof form, label: string, type = 'text', extra: Record<string, any> = {}) => <label className="transaction-field"><span>{label}</span><input name={key} aria-label={label} type={type} value={form[key]} onChange={event => change(key, event.target.value)} {...extra}/></label>;
   const amount = Number(form.shares) * Number(form.price);
-  return <Dialog title="新增交易" close={() => { if (!lock.current) close(); }}>
+  return <Dialog title="新增交易" fullScreen close={() => { if (!lock.current) close(); }}>
     <h2>新增交易</h2><p className="sheet-intro">儲存到股票試算表，並重新計算庫存。</p>
     <form className="transaction-form" onSubmit={submit}>
       <fieldset disabled={busy || Boolean(pending)}>

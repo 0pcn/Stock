@@ -5,7 +5,7 @@
 
 .hero-amount.hero-unrealized{flex-wrap:wrap}.hero-amount .hero-return{font-size:11px;line-height:1.4;letter-spacing:0;padding:4px 6px;border-radius:5px;background:#f5f7e960;white-space:nowrap}
 
-.detail-unrealized{margin-top:14px;padding:19px 20px;border:1px solid #bdcfae;border-radius:15px;background:#f2f7eb}.detail-unrealized-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.detail-unrealized-heading h3{font-size:16px;color:#3d5d32}.detail-unrealized-heading>span{font-size:10px;color:#5c774d;background:#e2ecd7;padding:4px 7px;border-radius:5px}.detail-unrealized>strong{display:block;margin-top:13px;font-size:28px;line-height:1.3;letter-spacing:-.5px;overflow-wrap:anywhere}.detail-unrealized-rate{display:flex;align-items:center;gap:9px;margin-top:10px;font-size:11px;color:#667b58}.detail-unrealized-rate b{font-size:13px}.detail-unrealized>p{margin-top:12px;color:#667b58;font-size:11px;line-height:1.8}
+.detail-unrealized{margin-top:14px;padding:19px 20px;border:1px solid #bdcfae;border-radius:15px;background:#f2f7eb}.detail-unrealized-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.detail-unrealized-heading :is(h2,h3){font-size:16px;color:#3d5d32}.detail-unrealized-heading>span{font-size:10px;color:#5c774d;background:#e2ecd7;padding:4px 7px;border-radius:5px}.detail-unrealized>strong{display:block;margin-top:13px;font-size:28px;line-height:1.3;letter-spacing:-.5px;overflow-wrap:anywhere}.detail-unrealized-rate{display:flex;align-items:center;gap:9px;margin-top:10px;font-size:11px;color:#667b58}.detail-unrealized-rate b{font-size:13px}.detail-unrealized>p{margin-top:12px;color:#667b58;font-size:11px;line-height:1.8}
 
 .detail-heading+.detail-unrealized{margin-top:23px}.detail-unrealized+.detail-value{margin-top:14px}
 
@@ -67,13 +67,13 @@
 .clean-cards .detail-heading h2 { font-size: 24px; color: #34572b; }
 .clean-cards .detail-heading p { font-size: 12px; color: #647858; margin-top: 6px; }
 .clean-cards .detail-unrealized { margin-top: 20px; padding: 18px; background: #eaf1e2; border: 0; }
-.clean-cards .detail-unrealized-heading h3 { font-size: 13px; color: #566d48; }
+.clean-cards .detail-unrealized-heading :is(h2,h3) { font-size: 13px; color: #566d48; }
 .clean-cards .detail-unrealized > strong { font-size: clamp(25px, 7.3vw, 32px); margin-top: 9px; }
 .clean-cards .detail-unrealized-rate { font-size: 12px; color: #586f49; }
 .clean-cards .detail-unrealized-rate b { font-size: 14px; }
 .clean-cards .detail-unrealized > p { font-size: 12px; color: #586f49; margin-top: 10px; }
 .clean-cards .detail-position { margin-top: 22px; }
-.clean-cards .detail-position h3, .clean-cards .detail-history h3 { font-size: 15px; color: #3d5d32; margin-bottom: 13px; }
+.clean-cards .detail-position :is(h2,h3), .clean-cards .detail-history :is(h2,h3) { font-size: 15px; color: #3d5d32; margin-bottom: 13px; }
 .clean-cards .detail-price-comparison { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); background: #f2f6ec; border-radius: 13px; padding: 18px 14px; gap: 12px; }
 .clean-cards .detail-price-comparison > div { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 .clean-cards .detail-price-comparison > div + div { border-left: 1px solid #dae4d1; padding-left: 14px; }
@@ -117,6 +117,20 @@
 .clean-cards .transaction-detail-note h3 { font-size: 13px; color: #3d5d32; }
 .clean-cards .transaction-detail-note p { font-size: 13px; color: #607651; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; }
 .clean-cards .sheet-intro, .clean-cards .fine-print { color: #647858; font-size: 12px; }
+.clean-cards .holding-page-header { gap: 8px; padding-left: 12px; padding-right: 16px; }
+.clean-cards .holding-page-title { flex: 1; min-width: 0; }
+.clean-cards .holding-page-title h1 { margin: 0; font-size: 21px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clean-cards .holding-page-title p { margin-top: 5px; font-size: 12px; color: #647858; }
+.clean-cards .holding-back { color: #426535; }
+.clean-cards .holding-page-content { padding: 9px 20px calc(27px + env(safe-area-inset-bottom, 0px)); }
+.clean-cards .holding-page-content .detail-unrealized { margin-top: 0; }
+.clean-cards .holding-page-content .detail-source { margin-top: 20px; }
+.holding-page > .toast { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+.clean-cards .full-screen-backdrop { top: var(--sheet-top, 0px); bottom: auto; height: var(--sheet-height, 100dvh); align-items: flex-start; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+.clean-cards .full-screen-sheet { height: calc(var(--sheet-height, 100dvh) - 8px - env(safe-area-inset-top, 0px)); max-height: calc(var(--sheet-height, 100dvh) - 8px - env(safe-area-inset-top, 0px)); border-radius: 21px 21px 0 0; padding-top: 27px; scroll-padding-top: 20px; scroll-padding-bottom: 24px; }
+.clean-cards .full-screen-sheet .sheet-handle { display: none; }
+.clean-cards .full-screen-sheet > h2 { padding-right: 40px; }
+.clean-cards .full-screen-sheet .transaction-field input, .clean-cards .full-screen-sheet .transaction-field select { scroll-margin-top: 20px; scroll-margin-bottom: 20px; }
 @media (max-width: 360px) {
   .clean-cards .holding-row { padding: 17px 13px; gap: 10px; }
   .clean-cards .holding-identity strong { font-size: 15px; }
@@ -127,4 +141,67 @@
   .clean-cards .detail-price-comparison { padding: 15px 12px; gap: 8px; }
   .clean-cards .detail-price-comparison > div + div { padding-left: 10px; }
   .clean-cards .sort-control select { max-width: 96px; font-size: 11px; }
+}
+
+/* Dividend totals always use the sheet's received amount and ex-dividend date. */
+.clean-cards .dividend-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
+.clean-cards .dividend-toolbar select { min-height: 44px; border: 1px solid #dde6d5; border-radius: 11px; padding: 0 12px; color: #426335; background: white; font-size: 14px; }
+.clean-cards .dividend-summary { padding: 18px 20px; background: #e8f0df; border: 1px solid #dce6d2; gap: 8px; margin: 0 0 17px; }
+.clean-cards .dividend-summary > span { font-size: 13px; color: #536f43; }
+.clean-cards .dividend-summary > strong { font-size: clamp(30px, 8.6vw, 37px); color: #304f28; overflow-wrap: anywhere; }
+.clean-cards .dividend-summary p { font-size: 12px; color: #607651; }
+.clean-cards .dividends-view .segmented-control { margin-bottom: 21px; }
+.clean-cards .dividends-view .segmented-control button { font-size: 13px; color: #647858; }
+.clean-cards .dividends-view .segmented-control button.selected { color: #35572b; }
+.clean-cards .dividends-view .section-heading.outside { margin-bottom: 8px; }
+.clean-cards .dividends-view .section-heading > span { color: #6c7e61; font-size: 11px; }
+.clean-cards .dividend-date-note { color: #647858; font-size: 12px; line-height: 1.7; margin: 0 2px 13px; }
+.clean-cards .dividend-month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.clean-cards .dividend-month { display: flex; flex-direction: column; min-width: 0; padding: 11px 12px 9px; text-align: left; background: white; border: 1px solid #e0e7d9; border-radius: 13px; }
+.clean-cards .dividend-month > span { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; color: #637858; }
+.clean-cards .dividend-month small { font-size: 10px; color: #738568; white-space: nowrap; }
+.clean-cards .dividend-month > strong { margin: 7px 0 9px; font-size: clamp(16px, 4.8vw, 19px); letter-spacing: -.4px; color: #6d7f62; overflow-wrap: anywhere; }
+.clean-cards .dividend-month.has-dividends > strong { color: #35572b; }
+.clean-cards .dividend-month > i { display: block; height: 3px; background: #edf1e8; border-radius: 4px; overflow: hidden; }
+.clean-cards .dividend-month > i > b { display: block; height: 100%; background: #9ab486; border-radius: inherit; }
+.clean-cards .dividend-month.selected { background: #edf4e6; border-color: #6d9257; box-shadow: inset 0 0 0 1px #6d9257; }
+.clean-cards .dividend-record-heading { margin-top: 24px; min-height: 36px; }
+.clean-cards .dividend-record-heading h2 { font-size: 15px; }
+.clean-cards .dividend-record-heading h2 small { margin-left: 4px; font-size: 11px; font-weight: 400; color: #6a7f5f; }
+.clean-cards .dividend-record-heading .text-button { color: #577747; font-size: 12px; }
+.clean-cards .dividend-month-total { display: flex; justify-content: space-between; gap: 12px; margin: 0 3px 12px; color: #647858; font-size: 12px; }
+.clean-cards .dividend-month-total strong { color: #36572c; font-size: 14px; }
+.clean-cards .dividend-record .holding-identity > span { flex-wrap: wrap; row-gap: 3px; white-space: normal; font-size: 11px; line-height: 1.5; }
+.clean-cards .dividend-record .holding-identity > small { display: block; white-space: normal; line-height: 1.7; }
+.clean-cards .dividend-stock-search { margin: 14px 0; }
+.clean-cards .dividend-stock-row { min-height: 85px; }
+.clean-cards .dividend-back { margin-bottom: 11px; min-height: 44px; font-size: 13px; color: #557644; }
+.clean-cards .dividend-stock-heading { display: flex; align-items: center; gap: 12px; margin: 0 0 19px; }
+.clean-cards .dividend-stock-heading h2 { font-size: 21px; color: #35572b; }
+.clean-cards .dividend-stock-heading p { margin-top: 5px; font-size: 12px; color: #647858; }
+.clean-cards .dividend-stock-heading .dividend-icon { width: 44px; height: 46px; color: #6a8a54; }
+.clean-cards .dividend-year-history { display: grid; gap: 12px; }
+.clean-cards .dividend-year-card { background: white; border: 1px solid #dfe7d7; border-radius: 15px; overflow: hidden; }
+.clean-cards .dividend-year-card > summary { display: flex; align-items: center; gap: 14px; padding: 18px 16px; cursor: pointer; list-style: none; min-height: 84px; }
+.clean-cards .dividend-year-card > summary::-webkit-details-marker { display: none; }
+.clean-cards .dividend-year-card > summary:focus-visible { outline: 3px solid #9db989; outline-offset: -3px; }
+.clean-cards .dividend-year-label { display: flex; flex-direction: column; gap: 6px; }
+.clean-cards .dividend-year-label > strong { font-size: 16px; color: #3d5f31; }
+.clean-cards .dividend-year-label > small { font-size: 11px; color: #647858; }
+.clean-cards .dividend-year-amount { display: flex; flex-direction: column; gap: 10px; flex: 1; align-items: flex-end; min-width: 0; }
+.clean-cards .dividend-year-amount > strong { font-size: 20px; color: #35572b; overflow-wrap: anywhere; }
+.clean-cards .dividend-year-track { height: 4px; width: min(100%, 120px); background: #eef2e9; border-radius: 5px; overflow: hidden; }
+.clean-cards .dividend-year-track > i { display: block; height: 100%; background: #98b284; border-radius: inherit; }
+.clean-cards .dividend-year-card > summary > svg { color: #6e855f; }
+.clean-cards .dividend-year-card[open] > summary > svg { transform: rotate(180deg); }
+.clean-cards .dividend-year-records { border-top: 1px solid #e6ecdf; }
+.clean-cards .dividend-year-records .holding-row { padding: 16px; }
+.clean-cards .dividend-source-note { color: #6a7f5f; font-size: 11px; line-height: 1.9; padding-top: 20px; }
+@media (max-width: 360px) {
+  .clean-cards .dividend-month-grid { gap: 7px; }
+  .clean-cards .dividend-month { padding: 12px 9px 10px; }
+  .clean-cards .dividend-month small { font-size: 9px; }
+  .clean-cards .dividend-record { gap: 8px; }
+  .clean-cards .dividend-record .holding-numbers { min-width: 75px; }
+  .clean-cards .dividend-record .holding-numbers > strong { font-size: 16px; }
 }
