@@ -8,16 +8,16 @@
   "scripts": {
     "install:ci": "node scripts/install-ci.mjs",
     "dev": "vite --config vite.pages.config.ts",
-    "build": "vite build --config vite.pages.config.ts && node scripts/verify-pages.mjs",
+    "build": "node scripts/build-transaction-rules.mjs --check && vite build --config vite.pages.config.ts && node scripts/verify-pages.mjs",
     "start": "vite preview --config vite.pages.config.ts --host 127.0.0.1",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test:google": "node --test tests/local-google.test.mjs tests/price-refresh.test.mjs tests/hosted-google.test.mjs tests/browser-google.test.mjs tests/browser-auth-storage.test.mjs",
+    "test:google": "node --test tests/local-google.test.mjs tests/price-refresh.test.mjs tests/hosted-google.test.mjs tests/browser-google.test.mjs tests/browser-auth-storage.test.mjs tests/transactions.test.mjs",
     "preview": "vite preview --config vite.pages.config.ts --host 127.0.0.1",
     "dev:server": "node scripts/run-framework.mjs dev",
     "build:server": "node scripts/run-framework.mjs build",
     "typecheck": "tsc --noEmit",
-    "test:portfolio": "node --test tests/holding-metrics.test.mjs tests/portfolio-snapshot.test.mjs tests/portfolio-ui.test.mjs tests/service-worker.test.mjs"
+    "test:portfolio": "node --test tests/holding-metrics.test.mjs tests/portfolio-snapshot.test.mjs tests/portfolio-ui.test.mjs tests/service-worker.test.mjs tests/transaction-dialog.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

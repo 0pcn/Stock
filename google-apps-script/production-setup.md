@@ -40,6 +40,8 @@ Data Access 包含原股票腳本的三個範圍：
 
 把 `stockfolio-api.gs` 的固定入口加入原股票腳本；如果入口已存在，只替換同名函式，不要重複加入或刪除其他股票工具函式。此版本使用 `canEdit()` 在更新前檢查庫存範圍權限。
 
+網站的新增交易另使用 `stockfolioAddTransaction`，需要加入交易模組並部署新版，詳見 [新增交易設定](transactions-setup.md)。
+
 Apps Script → 部署 → 管理部署作業 → 編輯目前 API 執行檔：
 
 1. 選擇新版本，包含更新後的入口。

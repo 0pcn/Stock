@@ -3,6 +3,7 @@ export type PortfolioApi = {
   status(): Promise<Connection>;
   read(source: string): Promise<any>;
   refresh(requestId: string): Promise<any>;
+  addTransaction?(requestId: string, transaction: TransactionInput): Promise<any>;
   logout(): Promise<any>;
   login?(options?: { selectAccount?: boolean }): Promise<any>;
   initialize?(): Promise<void>;
@@ -11,6 +12,7 @@ export type PortfolioApi = {
   saved?(): Promise<SavedPortfolio>;
   clearSaved?(): Promise<void>;
 };
+export type TransactionInput = { date: string; code: string; name: string; market: '上市' | '上櫃' | '美股'; action: '買入' | '賣出'; shares: number; price: number; fee: number | null; tax: number | null; note: string };
 export type SavedPortfolio = { persisted: boolean; sources: Record<string, { rows: (string | number | null)[][]; savedAt: number }> };
 async function post(path: string, body?: unknown) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}), cache: 'no-store' });

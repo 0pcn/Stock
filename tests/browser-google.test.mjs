@@ -70,6 +70,18 @@ test('logout and expiration clear the token and late reads cannot restore portfo
   assert.equal(notifications, 1); assert.equal((await f.api.status()).connected, false);
   assert.equal((await f.api.refresh(randomUUID())).status, 'reauthentication_required');
 });
+test('transaction writes need Google consent, use only the fixed entry and preserve uncertain outcomes', async () => {
+  const f = fixture();
+  const input = { date: '2026-01-02', code: '0050', name: '測試', market: '上市', action: '買入', shares: 1000, price: 100, fee: null, tax: null, note: '' };
+  const id = randomUUID();
+  assert.equal((await f.api.addTransaction(id, input)).status, 'reauthentication_required'); assert.equal(f.calls.requests.length, 0);
+  await f.api.login(); f.calls.result = { status: 'success', row: 2, inventoryUpdated: true };
+  assert.equal((await f.api.addTransaction(id, input)).status, 'success');
+  assert.deepEqual(JSON.parse(f.calls.requests[0].body), { function: 'stockfolioAddTransaction', parameters: [id, input], devMode: false });
+  f.calls.failure = 500; assert.equal((await f.api.addTransaction(id, input)).status, 'execution_unconfirmed');
+  assert.equal(JSON.parse(f.calls.requests[1].body).parameters[0], id);
+  f.calls.failure = 0; f.calls.result = { status: 'forbidden' }; assert.equal((await f.api.addTransaction(randomUUID(), input)).status, 'permission_denied');
+});
 test('switching accounts discards old responses and a new device starts with no saved token', async () => {
   const f = fixture(); await f.api.login(); let release;
   f.calls.wait = new Promise(resolve => { release = resolve; }); const alice = f.api.read('holdings');

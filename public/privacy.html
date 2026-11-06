@@ -1,6 +1,7 @@
 <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1b352e"><title>藏股｜隱私權說明</title><style>body{margin:0;background:#f5f7f2;color:#243e32;font:15px/1.9 system-ui,-apple-system,sans-serif}main{max-width:680px;margin:auto;padding:40px 24px 80px}h1{font-size:28px}h2{font-size:19px;margin-top:28px}a{color:#355e49}</style></head><body><main><a href="./">← 回到藏股</a><h1>藏股 Stockfolio 隱私權說明</h1>
-<p>藏股提供固定股票試算表的庫存、損益、交易與股利查閱，並可手動執行試算表原有的現價更新程式。</p>
-<h2>Google 授權與資料</h2><p>每位使用者以自己的 Google 帳號授權。瀏覽器直接呼叫 Google Sheets 和 Apps Script。首次讀取及取得新資料需要該帳號有試算表存取權限；更新現價需要編輯權限。已保存到此裝置的資料可免登入查看。Google 的授權範圍涵蓋試算表讀寫、腳本外部連線及原腳本的排程管理；網站只讀取固定分頁並呼叫固定的現價更新入口。</p>
+<p>藏股提供固定股票試算表的庫存、損益、交易與股利查閱，並可手動更新現價及新增交易記錄。</p>
+<h2>Google 授權與資料</h2><p>每位使用者以自己的 Google 帳號授權。瀏覽器直接呼叫 Google Sheets 和 Apps Script。首次讀取及取得新資料需要該帳號有試算表存取權限；更新現價及新增交易需要相關分頁的編輯權限。已保存到此裝置的資料可免登入查看。Google 的授權範圍涵蓋試算表讀寫、腳本外部連線及原腳本的排程管理；網站讀取固定分頁，並透過固定的現價更新及新增交易入口執行使用者的操作。</p>
+<h2>新增交易</h2><p>按儲存後，交易日期、代號、名稱、市場、買賣別、股數、成交價、費用與備註會送至 Google Apps Script，寫入同一份股票試算表並重算庫存。每筆網站新增的交易會在試算表 L 欄記錄交易 ID 與提交內容，用於確認結果及避免同筆請求重複寫入。未送出的表單與結果不明的確認狀態只保留在目前畫面，關閉後不會保存為草稿。儲存成功後，讀回的交易資料仍依下列方式保存在此裝置。</p>
 <h2>庫存保存在此裝置</h2><p>成功讀取的庫存、交易、股利、已實現損益、設定及各分頁的讀取時間會保存在此瀏覽器或 PWA 的 IndexedDB。之後開啟可先查看上次保存的資料，Google 授權到期、取消登入或離線時不會清除庫存。畫面會顯示最後讀取時間，保存的資料不代表即時行情。授權有效時開啟會重新讀取試算表；手動更新時若授權過期，才會要求 Google 授權。裝置無法保存資料時會顯示提示。</p>
 <h2>Google 更新授權</h2><p>Google 存取 Token、授權範圍與原始到期時間保存在 localStorage，並以 IndexedDB 備援，僅用於期限內讀取及更新。重新開啟不會延長授權期限，到期的 Token 會清除，已保存的庫存則繼續保留。若網站已關閉，到期 Token 於下次開啟時清除。網站不使用 Client Secret、refresh token、sessionStorage、cookie 或伺服器資料庫。財務資料不會上傳為共用資料快照，也不會跨裝置、跨瀏覽器同步。</p>
 <h2>離線開啟</h2><p>Service worker 的 Cache Storage 只保存公開的 App 檔案、樣式、圖示與離線提示，不保存 Google API 回應或 Token。App 檔案準備完成並已保存庫存後，可在離線時查看此裝置的資料；更新資料仍需要網路與 Google 授權。</p>
