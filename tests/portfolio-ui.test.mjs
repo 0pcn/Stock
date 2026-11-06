@@ -273,7 +273,7 @@ test('dividend privacy masks totals, per share and share counts and removes char
   const p = await page(t, { saved: dividendSnapshot }); await p.click('[aria-label="隱藏金額"]'); await p.clickText('股利');
   assert.equal(document.querySelector('[aria-label="股利摘要"] > strong').textContent, 'NT$••••');
   assert.ok([...document.querySelectorAll('.dividend-month > strong')].every(el => el.textContent === '••••'));
-  assert.ok([...document.querySelectorAll('.dividend-month i > b')].every(el => el.style.width === '0%'));
+  assert.ok([...document.querySelectorAll('.dividend-bar-track > i')].every(el => el.style.height === '0%'));
   assert.ok([...document.querySelectorAll('.dividend-record .holding-identity > small')].every(el => el.textContent.includes('每股 •••• · 持有 •••• 股')));
   await p.clickText('依股票看'); await p.click('#dividend-stock-0050');
   assert.ok([...document.querySelectorAll('.dividend-year-amount > strong')].every(el => el.textContent === '••••'));

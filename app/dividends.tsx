@@ -24,9 +24,12 @@ export default function Dividends({ rows, hidden, loading, at, exportCSV }: Prop
   const stockYears = [...new Set(history.map(entry => entry.year))].sort().reverse();
   const maximumYear = Math.max(1, ...stockYears.map(item => dividendTotal(history.filter(entry => entry.year === item))));
   const maximumMonth = Math.max(1, ...months.map(item => item.amount));
+  const chartStep = 10 ** Math.floor(Math.log10(maximumMonth));
+  const chartMaximum = Math.ceil(maximumMonth / chartStep) * chartStep;
   const monthlyEntries = scoped.filter(entry => month === null || entry.month === month);
   const fmt = (value: number, decimals = 0) => hidden ? '••••' : value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   const scopeLabel = year === 'all' ? '歷年' : `${year} 年`;
+  const axisLabel = (value: number) => hidden ? '••••' : value >= 10000 ? `${(value / 10000).toLocaleString('en-US', { maximumFractionDigits: 1 })}萬` : fmt(value);
 
   useLayoutEffect(() => {
     if (code) { window.scrollTo({ top: 0, behavior: 'auto' }); document.getElementById('dividend-stock-title')?.focus({ preventScroll: true }); }
@@ -66,7 +69,11 @@ export default function Dividends({ rows, hidden, loading, at, exportCSV }: Prop
       {mode === 'months' ? <>
         <div className="section-heading outside"><h2>{year === 'all' ? '歷年同月份合計' : '1–12 月股利'}</h2><span>全部股票加總</span></div>
         <p className="dividend-date-note">依除息月份統計，非實際入帳月份。</p>
-        <section className="dividend-month-grid" aria-label="每月股利總額">{months.map(item => <button key={item.month} className={`dividend-month${item.count ? ' has-dividends' : ''}${month === item.month ? ' selected' : ''}`} aria-label={`${item.month}月股利`} aria-pressed={month === item.month} disabled={!at} onClick={() => setMonth(month === item.month ? null : item.month)}><span>{item.month} 月<small>{item.count ? `${item.count} 筆` : '—'}</small></span><strong>{at ? fmt(item.amount) : '—'}</strong><i aria-hidden="true"><b style={{ width: hidden ? '0%' : `${Math.max(0, item.amount) / maximumMonth * 100}%` }}/></i></button>)}</section>
+        <section className="dividend-month-chart" aria-label="每月股利總額">
+          <div className="dividend-chart-scale" aria-hidden="true">{[chartMaximum, chartMaximum / 2, 0].map(value => <span key={value}>{at ? axisLabel(value) : '—'}</span>)}</div>
+          <div className="dividend-chart-plot"><div className="dividend-chart-grid" aria-hidden="true"><i/><i/><i/></div><div className="dividend-chart-columns">{months.map(item => <button key={item.month} className={`dividend-month${month === item.month ? ' selected' : ''}`} aria-label={`${item.month}月股利`} aria-describedby={`dividend-month-value-${item.month}`} aria-pressed={month === item.month} disabled={!at} title={`${item.month} 月：${at ? fmt(item.amount) : '—'}`} onClick={() => setMonth(month === item.month ? null : item.month)}><span className="dividend-bar-track" aria-hidden="true"><i style={{ height: hidden ? '0%' : `${Math.max(0, item.amount) / chartMaximum * 100}%` }}/></span><span className="dividend-month-label">{item.month}</span><strong className="sr-only" id={`dividend-month-value-${item.month}`}>{at ? fmt(item.amount) : '—'}</strong></button>)}</div></div>
+          <p className="dividend-chart-hint">點選月份查看明細<span>月份</span></p>
+        </section>
         <div className="section-heading outside dividend-record-heading"><h2>{month === null ? `${scopeLabel}配息明細` : `${month} 月配息明細`} <small>{monthlyEntries.length} 筆</small></h2>{month !== null && <button className="text-button" onClick={() => setMonth(null)}>清除月份<X size={13}/></button>}</div>
         {month !== null && <p className="dividend-month-total">{scopeLabel} {month} 月合計 <strong>{fmt(dividendTotal(monthlyEntries))}</strong></p>}
         <section className="stock-list" aria-label="股利配息明細">{monthlyEntries.map(entry => record(entry))}{!monthlyEntries.length && empty(!at ? '股利資料尚未讀取' : month ? `${month} 月沒有股利紀錄` : '目前沒有股利紀錄', '這裡顯示試算表既有紀錄，不預估未來配息。')}</section>
